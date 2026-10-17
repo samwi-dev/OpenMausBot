@@ -579,6 +579,7 @@ import {
 } from "./phone-secret.ts";
 // Keep these two last, so loading the route table leaves module start-up order as is.
 import { json, onJsonBody, parsedBodyOf, readBody } from "./harness/http.ts";
+import { handleTranscribe } from "./stt/transcribe.ts";
 import { ROUTES, dispatchRoutes } from "./routes/table.ts";
 import { createHostedSlackRoutes } from "./routes/hosted-slack.ts";
 import { createBotPresetRoutes } from "./routes/bot-presets.ts";
@@ -16883,6 +16884,10 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       } catch (e) {
         return json(res, 200, { voices: [], error: e instanceof Error ? e.message : String(e) });
       }
+    }
+    if (method === "POST" && path === "/api/stt/transcribe") {
+      const out = await handleTranscribe(req, cfg);
+      return json(res, out.status, out.body);
     }
     if (method === "POST" && path === "/api/tts/speak") {
       const body = await readBody(req);
