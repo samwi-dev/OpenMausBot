@@ -144,7 +144,7 @@ export function VoiceSettings({
     onPatch({ voice: voiceId });
   };
 
-  const setProvider = (next: "elevenlabs" | "fish" | "system" | "chatterbox" | "xai") => {
+  const setProvider = (next: "elevenlabs" | "fish" | "system" | "chatterbox" | "xai" | "tfd") => {
     if (next === provider || switching || (next === "system" && !systemVoicesAvailable)) return;
     setSwitching(true);
     setKeyDraft({ provider: null, value: "" });
@@ -220,6 +220,8 @@ export function VoiceSettings({
                   : " built-in Mac voices are unavailable here. Switch to a hosted voice provider to keep using voice."
                 : provider === "xai"
                   ? ` ${t("voice.grok.sharedKey")}`
+                : provider === "tfd"
+                  ? " it uses your TFD engine (Settings → Engines)."
                 : provider === "chatterbox"
                   ? " the Chatterbox server address is shared by this installation."
                   : ` the ${cloudProvider?.name ?? "voice provider"} key is shared by this installation.`}</>}
@@ -263,6 +265,7 @@ export function VoiceSettings({
               { value: "system", label: "Built-in Mac voices", available: systemVoicesAvailable },
               { value: "chatterbox", label: "Chatterbox (local)", available: true },
               { value: "xai", label: t("voice.grok.label"), available: true },
+              { value: "tfd", label: "TFD", available: true },
             ] as const).map((option) => (
               <button
                 key={option.value}

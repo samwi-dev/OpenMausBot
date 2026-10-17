@@ -26,7 +26,7 @@ type Phase = "listening" | "sending" | "working" | "speaking";
 export function GroupCallButton({ group, members }: { group: Group; members: Bot[] }) {
   const { capabilities, ready } = useDesktopCapabilities();
   if (group.dm) return null;
-  if (ready && !capabilities.dictation.available) return null;
+  if (ready && (!capabilities.dictation.available || capabilities.dictation.engine !== "apple-speech")) return null;
   return (
     <CallTargetButton
       targetId={group.id}

@@ -270,11 +270,20 @@ describe("calling a bot off the Mac", () => {
     await firstLiveCall("the server");
   });
 
-  it.each(["win32", "linux"] as const)("on This computer in the %s app, the call is Live and its key is saved through the app", async (platform) => {
-    open(desktopApp(platform, "this-computer"));
+  it("on This computer in the linux app, the call is Live and its key is saved through the app", async () => {
+    open(desktopApp("linux", "this-computer"));
     chat(THIS_COMPUTER);
     expectTurnsDisabled("Calls where you take turns need the Mac app");
     await firstLiveCall("the app");
+  });
+
+  it("on This computer in the win32 app, Take turns is offered through TFD", () => {
+    open(desktopApp("win32", "this-computer"));
+    chat(THIS_COMPUTER);
+    press(container.querySelector('[aria-label="Call mode"]'));
+    const [turns] = menuItems();
+    expect(turns?.textContent).toContain("Take turns");
+    expect(turns?.hasAttribute("aria-disabled")).toBe(false);
   });
 
   it.each([

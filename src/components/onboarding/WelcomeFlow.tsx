@@ -105,7 +105,7 @@ export function WelcomeFlow({
   const [detection, setDetection] = useState<SetupDetection | null>(setupImport?.detection ?? null);
   const [importResult, setImportResult] = useState<SetupImportResult | null>(null);
   const [importBusy, setImportBusy] = useState(false);
-  const beats = beatsFor({ dictation: dictation ?? capabilities.dictation.available, reel, hosted, setupImport: detection !== null, cloud: offer !== null });
+  const beats = beatsFor({ dictation: dictation ?? (capabilities.dictation.available && capabilities.dictation.engine === "apple-speech"), reel, hosted, setupImport: detection !== null, cloud: offer !== null });
   const [beat, setBeat] = useState<BeatId>(() => (initialBeat && beats.includes(initialBeat) ? initialBeat : "hello"));
   const [mascot, setMascot] = useState<MausState>(MASCOT_FOR_BEAT[beat]);
   const [motion, setMotion] = useState<{ kind: Motion; key: number }>({ kind: "blink", key: 0 });

@@ -27,6 +27,7 @@ import { callStarted } from "@/lib/product-events";
 import { useDesktopCapabilities } from "./DesktopCapabilities";
 import { callCapabilityHelp, type CallCapabilityHelp } from "@/lib/call-capability";
 import { VoiceSetupDialog } from "./VoiceSetupDialog";
+import { speechBridge } from "@/lib/speech-bridge";
 
 type Phase = "listening" | "sending" | "working" | "speaking";
 const CALL_ENDPOINT_MS = 850;
@@ -85,7 +86,7 @@ export function CallTargetButton({
   const active = onCall || onLiveCall;
   const remoteClient = globalThis.window?.ogb?.remoteClient?.active === true;
   const capabilityHelp = capabilitiesReady
-    ? callCapabilityHelp(capabilities, Boolean(window.ogb?.speechStart))
+    ? callCapabilityHelp(capabilities, Boolean(speechBridge()?.speechStart))
     : null;
   const supported = capabilitiesReady && !capabilityHelp;
   const localVoice = localSystemVoiceActive();
@@ -500,7 +501,7 @@ function Call({ bot }: { bot: Bot }) {
   }, []);
 
   const hush = useCallback(() => {
-    void window.ogb?.speechStop();
+    void speechBridge()?.speechStop();
   }, []);
 
   const listen = useCallback(() => {
@@ -508,7 +509,7 @@ function Call({ bot }: { bot: Bot }) {
     move("listening");
     setHeard("");
     setNote(null);
-    void window.ogb?.speechStart({ endpointMs: CALL_ENDPOINT_MS }).catch(() => {
+    void speechBridge()?.speechStart({ endpointMs: CALL_ENDPOINT_MS }).catch(() => {
       if (alive.current && currentCall() === bot.id) {
         setNote("The microphone couldn't start. Check Microphone and Speech Recognition access.");
       }
@@ -548,7 +549,7 @@ function Call({ bot }: { bot: Bot }) {
   }, [bot.id]);
 
   useEffect(() => {
-    const bridge = window.ogb;
+    const bridge = speechBridge();
     if (!bridge) return;
     const offTranscript = bridge.onSpeechTranscript((line) => {
       if (!alive.current || currentCall() !== bot.id || phaseRef.current !== "listening") return;
@@ -646,7 +647,7 @@ function Call({ bot }: { bot: Bot }) {
     return () => {
       offTranscript();
       offEnd();
-      void window.ogb?.speechStop();
+      void speechBridge()?.speechStop();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bot.id, bot.threadId, dispatch, hush, listen, move, sayThenListen]);

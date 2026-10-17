@@ -95,6 +95,12 @@ describe("desktop capabilities", () => {
     });
   });
 
+  it("offers TFD-backed dictation on Windows", () => {
+    const capabilities = desktopCapabilities({ platform: "win32", localConnection: readyConnection() });
+
+    expect(capabilities.dictation).toEqual({ available: true, engine: "tfd", onDevice: false });
+  });
+
   it.each(["unavailable", "standalone"])("keeps Windows local control closed for %s", (mode) => {
     const capabilities = desktopCapabilities({
       platform: "win32",

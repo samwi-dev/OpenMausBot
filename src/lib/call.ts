@@ -2,6 +2,7 @@
 import { useSyncExternalStore } from "react";
 
 import { speaker } from "./tts";
+import { speechBridge } from "./speech-bridge";
 
 let current: string | null = null;
 const watchers = new Set<() => void>();
@@ -18,7 +19,7 @@ export function startCall(targetId: string) {
   if (current === targetId) return;
   // Silence both halves before ownership changes: the old overlay may not unmount until React's next render.
   speaker.stop();
-  void window.ogb?.speechStop?.();
+  void speechBridge()?.speechStop?.();
   current = targetId;
   notify();
 }
@@ -29,7 +30,7 @@ export function endCall(targetId?: string): boolean {
   if (current === null) return false;
   current = null;
   speaker.stop();
-  void window.ogb?.speechStop?.();
+  void speechBridge()?.speechStop?.();
   notify();
   return true;
 }

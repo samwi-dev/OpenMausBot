@@ -699,7 +699,7 @@ export function Composer({
   }, [recording, editText]);
 
   const toggleMic = () => {
-    if (!capabilities.dictation.available || !window.ogb) {
+    if (!capabilities.dictation.available || capabilities.dictation.engine !== "apple-speech" || !window.ogb) {
       setSpeechError(t("composer.dictation.unavailable"));
       return;
     }
@@ -1084,7 +1084,7 @@ export function Composer({
             <Square size={14} className="fill-current" />
           </button>
         )}
-        {!locked && !busy && !hasContent && capabilities.dictation.available && (
+        {!locked && !busy && !hasContent && capabilities.dictation.available && capabilities.dictation.engine === "apple-speech" && (
           <button
             onClick={toggleMic}
             aria-label={recording ? t("composer.dictation.stop") : t("composer.dictation.start")}
