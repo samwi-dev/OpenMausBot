@@ -278,3 +278,21 @@ describe("setting up a voice from the call button", () => {
     expect(fixture.dialog).toBeNull();
   });
 });
+
+describe("the voice settings button", () => {
+  it("stays next to the call button once voice is ready and opens the voice pop-up", () => {
+    fixture.config = { tts: { configured: true, ready: true } };
+    const ready = render();
+    expect(ready.html).not.toContain("Call unavailable");
+    click(find(ready, "data-voice-settings"));
+    const opened = render();
+    expect(opened.html).toContain('data-voice-setup-stub="pepper"');
+    expect(fixture.dialog?.ready).toBe(true);
+  });
+
+  it("hides while a call is running", () => {
+    fixture.config = { tts: { configured: true, ready: true } };
+    fixture.onCall = "pepper";
+    expect(find(render(), "data-voice-settings")).toBeUndefined();
+  });
+});

@@ -2,7 +2,7 @@
 // so a mic open during playback transcribes the bot's own voice back. The buffer-backed recognizer does not finalize on
 // silence; the helper ends the stream.
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { AudioLines, Check, ChevronDown, Loader2, Phone, PhoneOff, X } from "lucide-react";
+import { AudioLines, Check, ChevronDown, Loader2, Phone, PhoneOff, Settings2, X } from "lucide-react";
 
 import { useShowThreads } from "@/lib/thread-preferences";
 import { openBot, useStore, visibleMessages, type Bot } from "@/state/store";
@@ -281,6 +281,26 @@ export function CallTargetButton({
             )}
         >
           <ChevronDown size={13} className={cn("transition-transform", menuOpen && "rotate-180")} />
+        </button>
+      )}
+      {setupBotId && !active && (
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          data-voice-settings
+          onClick={() => {
+            closePopovers();
+            setVoiceSetupBotId(setupBotId);
+            setVoiceSetupOpen(true);
+          }}
+          aria-label={t("call.voiceSetup.allSettings")}
+          title={t("call.voiceSetup.allSettings")}
+          className={cn(
+            "grid place-content-center rounded-lg text-ink-secondary hover:bg-raised-hover hover:text-ink transition-colors",
+            composer ? "size-8" : "size-9",
+          )}
+        >
+          <Settings2 size={composer ? 15 : 16} />
         </button>
       )}
 
