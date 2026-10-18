@@ -3,7 +3,7 @@ import { createElement } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { CallChatDock } from "./CallChatDock";
+import { CallDock } from "./CallDock";
 
 let root: Root;
 let host: HTMLDivElement;
@@ -19,28 +19,22 @@ afterEach(() => {
   host.remove();
 });
 
-const render = (active: boolean) =>
-  flushSync(() => root.render(createElement(CallChatDock, { active, children: null }, createElement("p", { id: "kid" }, "chat"))));
+const render = () =>
+  flushSync(() => root.render(createElement(CallDock, { title: "Voice", children: null }, createElement("p", { id: "kid" }, "call"))));
 
-describe("CallChatDock", () => {
-  it("renders children with no panel or drag handle when not on a call", () => {
-    render(false);
-    expect(host.querySelector("#kid")).not.toBeNull();
-    expect(host.querySelector("[data-call-chat-dock]")).toBeNull();
-    expect(host.querySelector("[data-call-chat-handle]")).toBeNull();
-  });
-
-  it("floats the chat in a panel with a drag handle during a call", () => {
-    render(true);
-    const panel = host.querySelector<HTMLElement>("[data-call-chat-dock]");
+describe("CallDock", () => {
+  it("floats the call in a titled panel with a drag handle", () => {
+    render();
+    const panel = host.querySelector<HTMLElement>("[data-call-dock]");
     expect(panel?.querySelector("#kid")).not.toBeNull();
-    expect(host.querySelector("[data-call-chat-handle]")).not.toBeNull();
+    expect(panel?.textContent).toContain("Voice");
+    expect(host.querySelector("[data-call-dock-handle]")).not.toBeNull();
   });
 
   it("moves the panel when the handle is dragged", () => {
-    render(true);
-    const panel = host.querySelector<HTMLElement>("[data-call-chat-dock]")!;
-    const handle = host.querySelector<HTMLElement>("[data-call-chat-handle]")!;
+    render();
+    const panel = host.querySelector<HTMLElement>("[data-call-dock]")!;
+    const handle = host.querySelector<HTMLElement>("[data-call-dock-handle]")!;
     handle.setPointerCapture = () => {};
     const fire = (type: string, x: number, y: number) =>
       flushSync(() => {

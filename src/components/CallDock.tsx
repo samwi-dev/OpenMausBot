@@ -1,6 +1,6 @@
 import { useRef, useState, type PointerEvent, type ReactNode } from "react";
 
-const KEY = "omb.callChatDock";
+const KEY = "omb.callDock";
 
 function loadPos(): { left: number; top: number } | null {
   try {
@@ -19,8 +19,8 @@ function savePos(pos: { left: number; top: number }) {
   }
 }
 
-// During a Take turns call the voice UI covers the chat; the dock floats the chat above it as a draggable, resizable panel.
-export function CallChatDock({ active, children }: { active: boolean; children: ReactNode }) {
+// A Take turns call floats above the chat as a draggable, resizable panel, so the conversation stays readable and typeable.
+export function CallDock({ title, children }: { title: string; children: ReactNode }) {
   const panel = useRef<HTMLDivElement>(null);
   const drag = useRef<{ dx: number; dy: number } | null>(null);
   const [pos, setPos] = useState<{ left: number; top: number } | null>(loadPos);
@@ -35,15 +35,14 @@ export function CallChatDock({ active, children }: { active: boolean; children: 
   };
 
   return (
-    // Same element tree either way, so starting or ending a call never remounts the chat (scroll, draft, focus).
     <div
       ref={panel}
-      data-call-chat-dock={active ? "" : undefined}
-      style={active ? (pos ?? undefined) : undefined}
-      className={!active ? "contents" : `absolute z-40 flex min-h-[240px] min-w-[300px] resize flex-col overflow-hidden rounded-xl border border-hairline bg-app shadow-2xl ${pos ? "" : "bottom-4 right-4"} h-[520px] w-[380px] max-h-full max-w-full`}
+      data-call-dock
+      style={pos ?? undefined}
+      className={`absolute z-40 flex min-h-[240px] min-w-[300px] resize flex-col overflow-hidden rounded-xl border border-hairline bg-app shadow-2xl ${pos ? "" : "bottom-4 right-4"} h-[440px] w-[340px] max-h-full max-w-full`}
     >
-      {active && <div
-        data-call-chat-handle
+      <div
+        data-call-dock-handle
         className="flex shrink-0 cursor-move touch-none select-none items-center border-b border-hairline px-3 py-1.5 text-[12px] font-medium text-ink-secondary"
         onPointerDown={(event) => {
           // Offsets, not the viewport rect: left/top are relative to the parent, which sits right of the sidebar.
@@ -64,9 +63,9 @@ export function CallChatDock({ active, children }: { active: boolean; children: 
           }
         }}
       >
-        Chat
-      </div>}
-      <div className={active ? "relative flex min-h-0 flex-1 flex-col" : "contents"}>{children}</div>
+        {title}
+      </div>
+      <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-6 overflow-auto p-4">{children}</div>
     </div>
   );
 }

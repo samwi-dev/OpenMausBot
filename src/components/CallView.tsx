@@ -27,6 +27,7 @@ import { callStarted } from "@/lib/product-events";
 import { useDesktopCapabilities } from "./DesktopCapabilities";
 import { callCapabilityHelp, type CallCapabilityHelp } from "@/lib/call-capability";
 import { VoiceSetupDialog } from "./VoiceSetupDialog";
+import { CallDock } from "./CallDock";
 import { speechBridge } from "@/lib/speech-bridge";
 
 type Phase = "listening" | "sending" | "working" | "speaking";
@@ -473,9 +474,9 @@ export function useTurnsCallActive(botId: string) {
 export function CallOverlay({ bot }: { bot: Bot }) {
   if (!useTurnsCallActive(bot.id)) return null;
   return (
-    <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-6 bg-app">
+    <CallDock title="Voice call">
       <Call key="turns" bot={bot} />
-    </div>
+    </CallDock>
   );
 }
 

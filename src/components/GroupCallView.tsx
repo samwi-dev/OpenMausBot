@@ -10,6 +10,7 @@ import { normalizeState } from "@/lib/mascot";
 import { speaker } from "@/lib/tts";
 import { useSpeech } from "@/lib/tts/useSpeech";
 import { usePushToTalk } from "@/lib/push-to-talk";
+import { CallDock } from "./CallDock";
 import { speechBridge } from "@/lib/speech-bridge";
 import { useStore, type Bot, type Group, type Message } from "@/state/store";
 import { cn } from "@/lib/cn";
@@ -459,7 +460,7 @@ function GroupCall({ group, members }: { group: Group; members: Bot[] }) {
             : "Working";
 
   return (
-    <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-6 bg-app px-8">
+    <CallDock title="Group call">
       <button
         onClick={() => endCall(group.id)}
         aria-label="Hang up"
@@ -562,6 +563,6 @@ function GroupCall({ group, members }: { group: Group; members: Bot[] }) {
       <div className="text-[11.5px] text-ink-tertiary">
         Hold Control + Option to talk · Say a member’s name to direct the turn · Space interrupts · Esc hangs up
       </div>
-    </div>
+    </CallDock>
   );
 }
