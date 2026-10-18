@@ -29,6 +29,8 @@ import { callCapabilityHelp, type CallCapabilityHelp } from "@/lib/call-capabili
 import { VoiceSetupDialog } from "./VoiceSetupDialog";
 import { CallDock } from "./CallDock";
 import { speechBridge } from "@/lib/speech-bridge";
+import { onReplyDelta } from "@/lib/reply-stream";
+import { takeSentences } from "@/lib/sentence-chunker";
 import { endpointMs } from "@/lib/voice-tuning";
 
 type Phase = "listening" | "sending" | "working" | "speaking";
@@ -480,6 +482,15 @@ export function CallOverlay({ bot }: { bot: Bot }) {
   );
 }
 
+/** The text left once `count` non-whitespace characters have been consumed from the front. */
+function dropVisible(text: string, count: number): string {
+  let seen = 0;
+  for (let i = 0; i < text.length; i++) {
+    if (!/\s/.test(text[i]) && ++seen === count) return text.slice(i + 1);
+  }
+  return "";
+}
+
 function Call({ bot }: { bot: Bot }) {
   const { dispatch } = useStore();
   const speech = useSpeech();
@@ -556,6 +567,43 @@ function Call({ bot }: { bot: Bot }) {
     [bot.id, bot.voice, hush, move],
   );
 
+  const streamBuf = useRef("");
+  const streamed = useRef("");
+  const speakQueue = useRef<Promise<boolean>>(Promise.resolve(true));
+  const queueEpoch = useRef(0);
+  const ignoreDeltas = useRef(false);
+
+  const enqueueSpeech = useCallback(
+    (text: string) => {
+      const epoch = queueEpoch.current;
+      speakQueue.current = speakQueue.current.then((ok) => (ok && epoch === queueEpoch.current ? say(text) : false));
+    },
+    [say],
+  );
+
+  /** `mute` also drops the rest of the reply that is still streaming in; the next user turn lifts it. */
+  const resetStream = useCallback((mute: boolean) => {
+    streamBuf.current = "";
+    streamed.current = "";
+    queueEpoch.current += 1;
+    speakQueue.current = Promise.resolve(true);
+    ignoreDeltas.current = mute;
+  }, []);
+
+  useEffect(
+    () =>
+      onReplyDelta(bot.threadId, (delta) => {
+        if (ignoreDeltas.current || !alive.current || currentCall() !== bot.id) return;
+        const { sentences, rest } = takeSentences(streamBuf.current + delta);
+        streamBuf.current = rest;
+        for (const sentence of sentences) {
+          streamed.current += sentence;
+          enqueueSpeech(sentence);
+        }
+      }),
+    [bot.id, bot.threadId, enqueueSpeech],
+  );
+
   const sayThenListen = useCallback(
     async (text: string) => {
       const stillMine = await say(text);
@@ -569,6 +617,7 @@ function Call({ bot }: { bot: Bot }) {
     return () => {
       alive.current = false;
       sayGeneration.current += 1;
+      queueEpoch.current += 1;
       // StrictMode remounts effects once in development; a microtask tells that probe from real navigation.
       deferCallCleanup(bot.id, () => alive.current);
     };
@@ -645,6 +694,7 @@ function Call({ bot }: { bot: Bot }) {
         return;
       }
 
+      resetStream(false);
       move("sending");
       dispatch({ type: "send", botId: bot.id, text: said, threadId: bot.threadId, via: "call" });
     });
@@ -676,7 +726,7 @@ function Call({ bot }: { bot: Bot }) {
       void speechBridge()?.speechStop();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bot.id, bot.threadId, dispatch, hush, listen, move, sayThenListen]);
+  }, [bot.id, bot.threadId, dispatch, hush, listen, move, resetStream, sayThenListen]);
 
   useEffect(() => {
     // The card may be resolved elsewhere (the approval UI, another client) while this call is open.
@@ -734,13 +784,25 @@ function Call({ bot }: { bot: Bot }) {
     for (const m of fresh) spokenIds.current.add(m.id);
 
     if (reply?.text) {
-      void sayThenListen(reply.text);
+      const spokenVisible = streamed.current.replace(/\s/g, "").length;
+      streamBuf.current = "";
+      streamed.current = "";
+      if (!spokenVisible) {
+        void sayThenListen(reply.text);
+      } else {
+        const tail = dropVisible(reply.text, spokenVisible).trim();
+        if (tail) enqueueSpeech(tail);
+        const epoch = queueEpoch.current;
+        void speakQueue.current.then((ok) => {
+          if (ok && epoch === queueEpoch.current && phaseRef.current === "speaking") listen();
+        });
+      }
     } else if (chip?.tool?.spoken && phase === "working") {
       void say(chip.tool.spoken).then((stillMine) => {
         if (stillMine && phaseRef.current === "speaking") move("working");
       });
     }
-  }, [messages, approval, question, phase, bot.busy, bot.name, hush, listen, move, say, sayThenListen]);
+  }, [messages, approval, question, phase, bot.busy, bot.name, enqueueSpeech, hush, listen, move, say, sayThenListen]);
 
   useEffect(() => {
     if (bot.busy) {
@@ -767,13 +829,14 @@ function Call({ bot }: { bot: Bot }) {
       } else if (e.code === "Space" && speaker.isSpeaking()) {
         e.preventDefault();
         sayGeneration.current += 1;
+        resetStream(true);
         speaker.stop();
         listen();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [bot.id, listen]);
+  }, [bot.id, listen, resetStream]);
 
   const mascotState =
     phase === "listening" ? "listening" : phase === "speaking" ? "sending" : phase === "sending" ? "thinking" : "working";
@@ -838,6 +901,7 @@ function Call({ bot }: { bot: Bot }) {
           <button
             onClick={() => {
               sayGeneration.current += 1;
+              resetStream(true);
               speaker.stop();
               listen();
             }}

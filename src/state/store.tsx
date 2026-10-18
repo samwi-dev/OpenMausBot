@@ -20,6 +20,7 @@ export { awayFromMainThread, botOpensTo, openBot, openBotThread, openNotificatio
 import type { TurnDigest } from "../../shared/digest";
 import type { ToolScope } from "../../shared/tool-scope";
 import type { ModelVariantOption, RuntimeEvent } from "../../shared/runtime-events";
+import { emitReplyDelta } from "@/lib/reply-stream";
 import type { MausColor, MausMotion } from "@/lib/mascot";
 import type { BotAvatarCrop } from "../../shared/bot-avatar";
 import { approvalModeFor, type ApprovalMode } from "../../shared/approval-mode";
@@ -3473,6 +3474,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           rawDispatch({ type: "webhookDeleted", webhookId: frame.webhookId });
           break;
         case "runtime": {
+          if (frame.event.type === "content.delta" && frame.event.streamKind === "assistant_text") {
+            emitReplyDelta(frame.event.threadId, frame.event.delta);
+          }
           const action = runtimeFrameAction(frame.event);
           if (action) rawDispatch(action);
           break;
