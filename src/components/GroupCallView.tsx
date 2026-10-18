@@ -12,6 +12,7 @@ import { useSpeech } from "@/lib/tts/useSpeech";
 import { usePushToTalk } from "@/lib/push-to-talk";
 import { CallDock } from "./CallDock";
 import { speechBridge } from "@/lib/speech-bridge";
+import { endpointMs } from "@/lib/voice-tuning";
 import { useStore, type Bot, type Group, type Message } from "@/state/store";
 import { cn } from "@/lib/cn";
 import { BotAvatar } from "./Avatar";
@@ -21,7 +22,6 @@ import { isRoutineApproval, isSkillApproval, pendingApprovals, spokenApprovalPro
 
 const YES = /^(yes|yeah|yep|yup|sure|ok|okay|go ahead|do it|allow|approve|approved|fine|please do)\b/i;
 const NO = /^(no|nope|don'?t|do not|stop|deny|denied|cancel|never|skip it)\b/i;
-const CALL_ENDPOINT_MS = 850;
 
 type Phase = "listening" | "sending" | "working" | "speaking";
 
@@ -124,7 +124,7 @@ function GroupCall({ group, members }: { group: Group; members: Bot[] }) {
     setSpeakingMemberId(null);
     setHeard("");
     setNote(null);
-    void speechBridge()?.speechStart({ endpointMs: CALL_ENDPOINT_MS }).catch(() => {
+    void speechBridge()?.speechStart({ endpointMs: endpointMs() }).catch(() => {
       if (alive.current && currentCall() === group.id) {
         setNote("The microphone couldn't start. Check Microphone and Speech Recognition access.");
       }

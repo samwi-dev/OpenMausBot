@@ -10,6 +10,8 @@ class FakeAudio {
   onerror: (() => void) | null = null;
   pause = vi.fn();
   play = vi.fn(async () => {});
+  playbackRate = 1;
+  preservesPitch = false;
 
   constructor(src: string) {
     this.src = src;
@@ -51,6 +53,26 @@ describe("Speaker lifecycle", () => {
     await expect(speaking).resolves.toBeUndefined();
     expect(FakeAudio.latest!.pause).toHaveBeenCalled();
     expect(speaker.state).toEqual({ status: "idle" });
+  });
+
+  it("plays at the saved speech rate with pitch preserved", async () => {
+    vi.stubGlobal("localStorage", { getItem: (key: string) => (key === "omb.voice.rate" ? "1.5" : null) });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) =>
+        String(input).endsWith("/prepare")
+          ? json({ ready: true, utterances: ["Hello there."] })
+          : new Response(new Blob(["mp3"]), { status: 200 }),
+      ),
+    );
+    const speaker = new Speaker();
+    const speaking = speaker.speak("Hello there.");
+    await vi.waitFor(() => expect(FakeAudio.latest?.play).toHaveBeenCalled());
+
+    expect(FakeAudio.latest!.playbackRate).toBe(1.5);
+    expect(FakeAudio.latest!.preservesPitch).toBe(true);
+    speaker.stop();
+    await speaking;
   });
 
   it("aborts preparation when stopped instead of leaving a request alive", async () => {

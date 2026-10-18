@@ -1,6 +1,7 @@
 // Audio comes from the harness, which holds the voice keys: the renderer never sees them or calls a voice provider.
 
 import { localSystemVoiceActive, remoteSystemVoice, resolveLocalSystemVoice } from "@/lib/local-voice";
+import { speechRate } from "@/lib/voice-tuning";
 
 export type SpeechStatus = "idle" | "preparing" | "speaking";
 
@@ -264,6 +265,8 @@ export class Speaker {
       this.settlePlayback = done;
       audio.onended = () => done(true);
       audio.onerror = () => done(false);
+      audio.playbackRate = speechRate();
+      audio.preservesPitch = true;
       audio.play().catch(() => done(false));
     });
   }

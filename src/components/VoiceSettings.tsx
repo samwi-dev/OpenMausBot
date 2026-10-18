@@ -16,6 +16,7 @@ import {
 } from "@/lib/local-voice";
 import { t } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
+import { ENDPOINT_MS, SPEECH_RATE, setEndpointMs, setSpeechRate, useVoiceTuning } from "@/lib/voice-tuning";
 import { voiceKeyDraftValue, type VoiceKeyDraft } from "@/lib/voice-key-draft";
 import { Select } from "./Select";
 import { Switch } from "./SettingsPrimitives";
@@ -37,6 +38,7 @@ export function VoiceSettings({
   workspaceConfigurationLocked?: boolean;
 }) {
   const { state, dispatch } = useStore();
+  const tuning = useVoiceTuning();
   const tts = state.config?.tts;
 
   const [keyDraft, setKeyDraft] = useState<VoiceKeyDraft>({ provider: null, value: "" });
@@ -449,6 +451,40 @@ export function VoiceSettings({
           </div>
         </div>
       )}
+
+      <div className="mt-4 border-t border-hairline/40 pt-4">
+        <div className="flex items-center justify-between gap-4 text-[13px]">
+          <label htmlFor="voice-speech-rate" className="font-medium text-ink">Speech speed</label>
+          <span className="tabular-nums text-ink-secondary">{tuning.speechRate.toFixed(2).replace(/0$/, "")}×</span>
+        </div>
+        <input
+          id="voice-speech-rate"
+          type="range"
+          min={SPEECH_RATE.min}
+          max={SPEECH_RATE.max}
+          step={SPEECH_RATE.step}
+          value={tuning.speechRate}
+          onChange={(event) => setSpeechRate(Number(event.currentTarget.value))}
+          className="mt-2 h-1 w-full accent-accent"
+        />
+        <div className="mt-4 flex items-center justify-between gap-4 text-[13px]">
+          <label htmlFor="voice-reply-delay" className="font-medium text-ink">Reply delay</label>
+          <span className="tabular-nums text-ink-secondary">{tuning.endpointMs} ms</span>
+        </div>
+        <input
+          id="voice-reply-delay"
+          type="range"
+          min={ENDPOINT_MS.min}
+          max={ENDPOINT_MS.max}
+          step={ENDPOINT_MS.step}
+          value={tuning.endpointMs}
+          onChange={(event) => setEndpointMs(Number(event.currentTarget.value))}
+          className="mt-2 h-1 w-full accent-accent"
+        />
+        <div className="mt-1.5 text-[11.5px] leading-relaxed text-ink-secondary">
+          How long a pause ends your turn on a call. Shorter answers faster but may cut you off.
+        </div>
+      </div>
 
       <div className="mt-4 flex items-center justify-between gap-4 border-t border-hairline/40 pt-4">
         <div>

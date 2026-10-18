@@ -29,9 +29,9 @@ import { callCapabilityHelp, type CallCapabilityHelp } from "@/lib/call-capabili
 import { VoiceSetupDialog } from "./VoiceSetupDialog";
 import { CallDock } from "./CallDock";
 import { speechBridge } from "@/lib/speech-bridge";
+import { endpointMs } from "@/lib/voice-tuning";
 
 type Phase = "listening" | "sending" | "working" | "speaking";
-const CALL_ENDPOINT_MS = 850;
 
 export type CallButtonPlacement = "header" | "composer";
 
@@ -535,7 +535,7 @@ function Call({ bot }: { bot: Bot }) {
     move("listening");
     setHeard("");
     setNote(null);
-    void speechBridge()?.speechStart({ endpointMs: CALL_ENDPOINT_MS }).catch(() => {
+    void speechBridge()?.speechStart({ endpointMs: endpointMs() }).catch(() => {
       if (alive.current && currentCall() === bot.id) {
         setNote("The microphone couldn't start. Check Microphone and Speech Recognition access.");
       }
