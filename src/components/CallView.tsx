@@ -599,7 +599,7 @@ function Call({ bot }: { bot: Bot }) {
   const feedStream = useCallback(
     (delta: string) => {
       if (ignoreDeltas.current || !alive.current || currentCall() !== bot.id) return;
-      const { sentences, rest } = takeSentences(streamBuf.current + delta);
+      const { sentences, rest } = takeSentences(streamBuf.current + delta, { atClause: !streamed.current });
       streamBuf.current = rest;
       for (const sentence of sentences) {
         streamed.current += sentence;
@@ -621,6 +621,7 @@ function Call({ bot }: { bot: Bot }) {
 
   useEffect(() => {
     alive.current = true;
+    speaker.prime(bot.voice);
     return () => {
       alive.current = false;
       frontAbort.current?.abort();

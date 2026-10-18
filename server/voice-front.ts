@@ -86,6 +86,67 @@ export async function streamVoiceFront(options: StreamVoiceFrontOptions): Promis
   consume((buffer + decoder.decode()).trim());
 }
 
+/**
+ * The hosted model's first token occasionally stalls for seconds. A second identical request starts after `hedgeMs`
+ * (or as soon as the first fails); whichever speaks first wins and the other is aborted.
+ */
+export function hedgedVoiceFront(
+  options: Omit<StreamVoiceFrontOptions, "signal"> & { signal: AbortSignal; hedgeMs: number; giveUpMs: number },
+): Promise<void> {
+  const { hedgeMs, giveUpMs, signal, onDelta, ...rest } = options;
+  return new Promise((resolve, reject) => {
+    const attempts: AbortController[] = [];
+    let winner = -1;
+    let failed = 0;
+    let finished = false;
+    const finish = (error?: Error) => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(hedge);
+      clearTimeout(giveUp);
+      signal.removeEventListener("abort", onAbort);
+      attempts.forEach((attempt, index) => index !== winner && attempt.abort());
+      if (error) {
+        attempts[winner]?.abort();
+        reject(error);
+      } else resolve();
+    };
+    const launch = () => {
+      if (finished || attempts.length >= 2) return;
+      const index = attempts.length;
+      const controller = new AbortController();
+      attempts.push(controller);
+      streamVoiceFront({
+        ...rest,
+        signal: controller.signal,
+        onDelta: (text) => {
+          if (winner < 0) {
+            winner = index;
+            clearTimeout(hedge);
+            clearTimeout(giveUp);
+            attempts.forEach((attempt, other) => other !== index && attempt.abort());
+          }
+          if (winner === index) onDelta(text);
+        },
+      }).then(
+        () => (winner === index ? finish() : lost(new Error("empty reply"))),
+        (error: Error) => (winner === index ? finish(error) : lost(error)),
+      );
+      const lost = (error: Error) => {
+        if (winner >= 0 || finished) return;
+        failed += 1;
+        if (attempts.length < 2) launch();
+        else if (failed >= attempts.length) finish(error);
+      };
+    };
+    const onAbort = () => finish(new Error("aborted"));
+    signal.addEventListener("abort", onAbort);
+    const hedge = setTimeout(launch, hedgeMs);
+    const giveUp = setTimeout(() => finish(new Error("no first word in time")), giveUpMs);
+    launch();
+  });
+}
+
 /** Holds back text only while it could still turn out to be the marker, which may arrive split across deltas. */
 export function frontSplitter() {
   let pending = "";

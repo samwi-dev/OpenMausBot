@@ -55,4 +55,9 @@ describe("takeSentences", () => {
     expect(takeSentences("still typing")).toEqual({ sentences: [], rest: "still typing" });
     expect(takeSentences("")).toEqual({ sentences: [], rest: "" });
   });
+  it("cuts at the first comma when asked, so the opening clause can be voiced early", () => {
+    expect(takeSentences("好的，我幫你看一下天氣", { atClause: true })).toEqual({ sentences: ["好的，"], rest: "我幫你看一下天氣" });
+    expect(takeSentences("Sure, let me check", { atClause: true })).toEqual({ sentences: ["Sure,"], rest: "let me check" });
+    expect(takeSentences("好的，我幫你看一下天氣")).toEqual({ sentences: [], rest: "好的，我幫你看一下天氣" });
+  });
 });

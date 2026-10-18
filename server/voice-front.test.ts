@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DELEGATE_MARKER, frontSplitter, streamVoiceFront, voiceFrontPrompt, type FrontEvent } from "./voice-front.ts";
+import { DELEGATE_MARKER, frontSplitter, hedgedVoiceFront, streamVoiceFront, voiceFrontPrompt, type FrontEvent } from "./voice-front.ts";
 
 const bot = { name: "Mina", title: "Helper", description: "Likes tea." };
 
@@ -75,5 +75,46 @@ describe("frontSplitter", () => {
   });
   it("delegates with a default ack when the marker has none", () => {
     expect(run(["⟦查⟧"])).toEqual([{ kind: "delegate", ack: "我查一下。" }]);
+  });
+});
+
+describe("hedgedVoiceFront", () => {
+  const base = { url: "https://x.test/v1", key: "k", model: "m", messages: [], hedgeMs: 20, giveUpMs: 200 };
+  const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  // Each call takes the next delay; the reply text names which attempt answered.
+  const fetchWith = (delays: number[]) => {
+    let calls = 0;
+    const fetchImpl = async (_url: string, init: { signal: AbortSignal }) => {
+      const attempt = calls++;
+      await wait(delays[attempt]);
+      if (init.signal.aborted) throw new Error("aborted");
+      return sse(chunk({ content: `attempt${attempt}` }));
+    };
+    return { fetchImpl: fetchImpl as unknown as typeof fetch, calls: () => calls };
+  };
+  it("does not hedge when the first attempt answers in time", async () => {
+    const seen: string[] = [];
+    const f = fetchWith([0, 0]);
+    await hedgedVoiceFront({ ...base, signal: new AbortController().signal, onDelta: (t) => seen.push(t), fetchImpl: f.fetchImpl });
+    expect(seen).toEqual(["attempt0"]);
+    expect(f.calls()).toBe(1);
+  });
+  it("takes the hedge when the first attempt is slow", async () => {
+    const seen: string[] = [];
+    const f = fetchWith([150, 0]);
+    await hedgedVoiceFront({ ...base, signal: new AbortController().signal, onDelta: (t) => seen.push(t), fetchImpl: f.fetchImpl });
+    expect(seen).toEqual(["attempt1"]);
+    expect(f.calls()).toBe(2);
+  });
+  it("gives up when nobody speaks in time", async () => {
+    const f = fetchWith([500, 500]);
+    await expect(hedgedVoiceFront({ ...base, signal: new AbortController().signal, onDelta: () => {}, fetchImpl: f.fetchImpl })).rejects.toThrow(/first word/);
+  });
+  it("hedges at once when the first attempt fails", async () => {
+    const seen: string[] = [];
+    let calls = 0;
+    const fetchImpl = (async () => (calls++ === 0 ? new Response("no", { status: 500 }) : sse(chunk({ content: "ok" })))) as unknown as typeof fetch;
+    await hedgedVoiceFront({ ...base, hedgeMs: 10_000, signal: new AbortController().signal, onDelta: (t) => seen.push(t), fetchImpl });
+    expect(seen).toEqual(["ok"]);
   });
 });

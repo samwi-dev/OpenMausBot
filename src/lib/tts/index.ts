@@ -97,6 +97,12 @@ export class Speaker {
     this.warmed.set(key, [...(this.warmed.get(key) ?? []), { controller, items }]);
   }
 
+  /** The first synthesis after a pause pays for starting the voice worker; a throwaway clip pays it early. */
+  prime(voiceId?: string) {
+    if (localSystemVoiceActive()) return;
+    this.render("嗯", voiceId, new AbortController().signal).catch(() => {});
+  }
+
   /** Aborts and forgets every warmed sentence that was never spoken. */
   discardWarm() {
     for (const list of this.warmed.values()) for (const entry of list) entry.controller.abort();
