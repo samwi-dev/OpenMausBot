@@ -1,6 +1,6 @@
 # Fork 交接紀錄（samwi-dev/OpenMausBot，分支 `mac`）
 
-> 給接手的 agent／另一台機器：先讀完本檔再動工。最後更新 2026-10-18（Windows 端，HEAD `0220237`）。
+> 給接手的 agent／另一台機器：先讀完本檔再動工。最後更新 2026-10-18（Windows 端，HEAD `56dafc4`）。
 
 ## 這個 fork 做了什麼
 在原版 OpenMausBot 加上以 TFD（openai-compat 雲端端點）為底的語音通話，不在本機跑任何模型。
@@ -18,6 +18,7 @@
 | 回覆邊串流邊逐句朗讀，打斷後不重唸 | `5320b5c` `9d3edf6` | `src/lib/sentence-chunker.ts`、`src/lib/reply-stream.ts` |
 | edge-tts 常駐 worker；下一句在播放時預先合成 | `6038a9c` | `server/tts/edge-worker.py`、`src/lib/tts/index.ts` |
 | 語音前台：簡單的話由精簡提示直接回答，需要做事的轉交完整 bot | `0220237` | `server/voice-front.ts`、`src/lib/voice-front.ts` |
+| 前台 0.9 秒沒出字就重送一次、第一個逗號就合成、開通話先預熱語音 | `56dafc4` | `server/voice-front.ts`、`src/lib/sentence-chunker.ts`、`src/lib/tts/index.ts` |
 
 設計文件：
 - `docs/specs/2026-10-17-tfd-voice-call-design.md`
@@ -61,6 +62,7 @@
 - 前台唸到一半出錯時，轉交給 bot 可能重複唸一小段。
 - 群組通話（`GroupCallView.tsx`）沒有串流朗讀，也沒有語音前台。
 - `server/tts/tfd.ts` 的繁轉簡（opencc-js，`b2ac595`）在改用 Edge 後已經用不到，還沒決定要不要移除。
+- Live call 只接 OpenAI（`gpt-live-1`），這台沒設 key。TFD 沒有即時語音模型，`/v1/realtime*` 全部 404；已決定請 TFD 上架，等回覆。
 - 跟上游的關係還沒決定：開 PR 回原作者，或是只合併到 fork 的 main。
 - 全套測試有已知的無關失敗：`ApprovalCard`、`WidgetFields`、`memory.test.ts` 的 relativeTime（日期寫死）。
 
