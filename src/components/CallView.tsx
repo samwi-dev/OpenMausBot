@@ -787,7 +787,9 @@ function Call({ bot }: { bot: Bot }) {
       const spokenVisible = streamed.current.replace(/\s/g, "").length;
       streamBuf.current = "";
       streamed.current = "";
-      if (!spokenVisible) {
+      if (ignoreDeltas.current) {
+        // Interrupted mid-reply: the person already took the turn back.
+      } else if (!spokenVisible) {
         void sayThenListen(reply.text);
       } else {
         const tail = dropVisible(reply.text, spokenVisible).trim();
