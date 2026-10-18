@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AppConfig } from "./config.ts";
-import { tfdCredential } from "./tfd-credential.ts";
+import { instanceCredential, tfdCredential } from "./tfd-credential.ts";
 
 const tfd = (over: Record<string, unknown> = {}, driver = "openai-compat"): AppConfig => ({
   instances: { tfd: { driver, environment: { TFD_API_KEY: "k" }, config: { url: "https://x.test/v1//", apiKeyEnv: "TFD_API_KEY", ...over } } },
@@ -15,5 +15,20 @@ describe("tfdCredential", () => {
     expect(tfdCredential(tfd({ url: "" }))).toBeNull();
     expect(tfdCredential(tfd({ apiKeyEnv: "OTHER" }))).toBeNull();
     expect(tfdCredential(tfd({}, "grok"))).toBeNull();
+  });
+});
+
+describe("instanceCredential", () => {
+  it("reads any openai-compat instance by id", () => {
+    expect(instanceCredential(tfd(), "tfd")).toEqual({ url: "https://x.test/v1", key: "k" });
+    expect(instanceCredential(tfd(), "other")).toBeNull();
+    expect(instanceCredential(tfd({}, "grok"), "tfd")).toBeNull();
+  });
+});
+
+describe("instanceCredential inline key", () => {
+  it("accepts a key stored in the instance config", () => {
+    const cfg = { instances: { added: { driver: "openai-compat", config: { url: "https://x.test/v1", key: "inline" } } } } as AppConfig;
+    expect(instanceCredential(cfg, "added")).toEqual({ url: "https://x.test/v1", key: "inline" });
   });
 });

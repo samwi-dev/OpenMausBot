@@ -31,6 +31,7 @@ import { CallDock } from "./CallDock";
 import { speechBridge } from "@/lib/speech-bridge";
 import { onReplyDelta } from "@/lib/reply-stream";
 import { takeSentences } from "@/lib/sentence-chunker";
+import { askVoiceFront } from "@/lib/voice-front";
 import { endpointMs } from "@/lib/voice-tuning";
 
 type Phase = "listening" | "sending" | "working" | "speaking";
@@ -572,6 +573,7 @@ function Call({ bot }: { bot: Bot }) {
   const speakQueue = useRef<Promise<boolean>>(Promise.resolve(true));
   const queueEpoch = useRef(0);
   const ignoreDeltas = useRef(false);
+  const frontAbort = useRef<AbortController | null>(null);
 
   const enqueueSpeech = useCallback(
     (text: string) => {
@@ -585,6 +587,7 @@ function Call({ bot }: { bot: Bot }) {
 
   /** `mute` also drops the rest of the reply that is still streaming in; the next user turn lifts it. */
   const resetStream = useCallback((mute: boolean) => {
+    frontAbort.current?.abort();
     streamBuf.current = "";
     streamed.current = "";
     queueEpoch.current += 1;
@@ -593,19 +596,20 @@ function Call({ bot }: { bot: Bot }) {
     ignoreDeltas.current = mute;
   }, []);
 
-  useEffect(
-    () =>
-      onReplyDelta(bot.threadId, (delta) => {
-        if (ignoreDeltas.current || !alive.current || currentCall() !== bot.id) return;
-        const { sentences, rest } = takeSentences(streamBuf.current + delta);
-        streamBuf.current = rest;
-        for (const sentence of sentences) {
-          streamed.current += sentence;
-          enqueueSpeech(sentence);
-        }
-      }),
-    [bot.id, bot.threadId, enqueueSpeech],
+  const feedStream = useCallback(
+    (delta: string) => {
+      if (ignoreDeltas.current || !alive.current || currentCall() !== bot.id) return;
+      const { sentences, rest } = takeSentences(streamBuf.current + delta);
+      streamBuf.current = rest;
+      for (const sentence of sentences) {
+        streamed.current += sentence;
+        enqueueSpeech(sentence);
+      }
+    },
+    [bot.id, enqueueSpeech],
   );
+
+  useEffect(() => onReplyDelta(bot.threadId, feedStream), [bot.threadId, feedStream]);
 
   const sayThenListen = useCallback(
     async (text: string) => {
@@ -619,6 +623,7 @@ function Call({ bot }: { bot: Bot }) {
     alive.current = true;
     return () => {
       alive.current = false;
+      frontAbort.current?.abort();
       sayGeneration.current += 1;
       queueEpoch.current += 1;
       speaker.discardWarm();
@@ -700,7 +705,23 @@ function Call({ bot }: { bot: Bot }) {
 
       resetStream(false);
       move("sending");
-      dispatch({ type: "send", botId: bot.id, text: said, threadId: bot.threadId, via: "call" });
+      const sendToBot = () => dispatch({ type: "send", botId: bot.id, text: said, threadId: bot.threadId, via: "call" });
+      // The front desk answers simple turns itself (its rows reach the chat over the event stream, where the reply
+      // effect speaks any unspoken tail and reopens the mic); everything else goes to the full bot.
+      const controller = new AbortController();
+      frontAbort.current = controller;
+      void askVoiceFront(bot.id, bot.threadId, said, { onDelta: feedStream, signal: controller.signal }).then((front) => {
+        if (controller.signal.aborted || !alive.current) return;
+        if (front.kind === "answered") return;
+        if (front.kind === "delegate") {
+          enqueueSpeech(front.ack);
+          const epoch = queueEpoch.current;
+          void speakQueue.current.then(() => {
+            if (epoch === queueEpoch.current && phaseRef.current === "speaking") move("working");
+          });
+        } else resetStream(false);
+        sendToBot();
+      });
     });
     const offEnd = bridge.onSpeechEnd(({ code, reason }) => {
       if (!alive.current || currentCall() !== bot.id) return;
@@ -730,7 +751,7 @@ function Call({ bot }: { bot: Bot }) {
       void speechBridge()?.speechStop();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bot.id, bot.threadId, dispatch, hush, listen, move, resetStream, sayThenListen]);
+  }, [bot.id, bot.threadId, dispatch, enqueueSpeech, feedStream, hush, listen, move, resetStream, sayThenListen]);
 
   useEffect(() => {
     // The card may be resolved elsewhere (the approval UI, another client) while this call is open.

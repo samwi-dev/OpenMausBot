@@ -325,6 +325,8 @@ import { decideRoomResponder, type RoomRoutingInput } from "./decider/room-routi
 import { createLiveSession, liveAttachUrl, liveHistoryFrom, LiveSessionError, type LiveBot, type LiveHistoryMessage } from "./live-call.ts";
 import { LiveCallController, LiveCallSignedOutError, type LiveSocket } from "./live-call-controller.ts";
 import { ProPlan } from "./pro-plan.ts";
+import { frontSplitter, streamVoiceFront, voiceFrontPrompt, type FrontEvent } from "./voice-front.ts";
+import { instanceCredential } from "./tfd-credential.ts";
 import { recordLiveCall, spokenLineFields, titleLiveCall } from "./live-call-record.ts";
 import { narrateTool, toUtterances } from "./tts/speech-text.ts";
 import { turnStartLogLine } from "./turn-log.ts";
@@ -2133,6 +2135,7 @@ async function cloudComputerHolders(botId: string): Promise<string[]> {
 function boatNotConfigured(bot: { name: string }, source: PlaceSource): PlaceUnavailableError {
   return placeUnavailable("cloud", { state: CLOUD_HOME ? "cc-unavailable" : "cc-needs-key", params: { bot: bot.name }, source }, Boolean(CLOUD_HOME));
 }
+const VOICE_FRONT_FIRST_WORD_MS = 2_500;
 const directTurnDispatchClaims = new Map<string, DirectTurnDispatchClaim>();
 const directTurnGenerationByThread = new Map<string, string>();
 // Latest direct request per thread, kept past Stop until completion or failure cleanup; unknown continuations deliberately lose proof.
@@ -16908,6 +16911,55 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         if (e instanceof tts.NoVoiceConfigured) return json(res, 409, { error: e.message });
         return json(res, 502, { error: e instanceof Error ? e.message : String(e) });
       }
+    }
+
+    const voiceFrontMatch = method === "POST" ? path.match(/^\/api\/bots\/([\w-]+)\/voice-front$/) : null;
+    if (voiceFrontMatch) {
+      const body = await readBody(req);
+      const threadId = typeof body.threadId === "string" ? body.threadId : "";
+      const text = typeof body.text === "string" ? body.text.trim() : "";
+      const bot = store.bot(voiceFrontMatch[1]);
+      if (!bot) return json(res, 404, { error: "no such bot" });
+      const credential = instanceCredential(cfg, bot.modelSelection.instanceId);
+      if (!credential) return json(res, 409, { error: "this bot's model is not an openai-compat instance" });
+      if (!text || !store.taskByThread(bot.id, threadId)) return json(res, 409, { error: "no such conversation" });
+      if (threadBusy(bot.id, threadId) || botHasActiveTurn(bot.id)) return json(res, 409, { error: "the bot is already working", code: "thread_busy" });
+      const messages = [...voiceFrontPrompt(bot, liveHistoryFrom(store.activePath(threadId))), { role: "user" as const, content: text }];
+      res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache", "x-accel-buffering": "no" });
+      const frame = (event: string, data: object = {}) => res.write(`data: ${JSON.stringify({ event, ...data })}\n\n`);
+      const abort = new AbortController();
+      let timedOut = false;
+      // The front desk must beat the full bot to a first word; otherwise the caller falls back to it.
+      const firstWord = setTimeout(() => { timedOut = true; abort.abort(); }, VOICE_FRONT_FIRST_WORD_MS);
+      res.on("close", () => abort.abort());
+      const splitter = frontSplitter();
+      let answer = "";
+      let delegated = false;
+      const emit = (events: FrontEvent[]) => {
+        for (const event of events) {
+          if (event.kind === "delegate") { delegated = true; frame("delegate", { ack: event.ack }); }
+          else { answer += event.text; frame("delta", { text: event.text }); }
+        }
+      };
+      try {
+        await streamVoiceFront({
+          ...credential, model: bot.modelSelection.model, messages, signal: abort.signal,
+          onDelta: (delta) => { clearTimeout(firstWord); emit(splitter.push(delta)); },
+        });
+        emit(splitter.end());
+        if (!delegated && !answer.trim()) throw new Error("empty reply");
+        if (!delegated) {
+          store.appendMessage(threadId, { role: "user", kind: "text", text, ...spokenLineFields("call", undefined) });
+          store.appendMessage(threadId, { role: "bot", kind: "text", text: answer.trim() });
+        }
+        frame("done");
+      } catch (e) {
+        frame("error", { error: timedOut ? "no first word in time" : e instanceof Error ? e.message : String(e) });
+      } finally {
+        clearTimeout(firstWord);
+        res.end();
+      }
+      return;
     }
 
     if (method === "GET" && path === "/api/connectors/catalog") {
