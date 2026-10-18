@@ -2,6 +2,7 @@ import { useSyncExternalStore } from "react";
 
 const RATE_KEY = "omb.voice.rate";
 const ENDPOINT_KEY = "omb.voice.endpointMs";
+const COMMAND_KEY = "omb.voice.commandMode";
 
 export const SPEECH_RATE = { min: 0.8, max: 2, step: 0.05, fallback: 1.25 } as const;
 export const ENDPOINT_MS = { min: 300, max: 1500, step: 50, fallback: 500 } as const;
@@ -35,13 +36,32 @@ export const endpointMs = () => read(ENDPOINT_KEY, ENDPOINT_MS);
 export const setSpeechRate = (value: number) => write(RATE_KEY, SPEECH_RATE, value);
 export const setEndpointMs = (value: number) => write(ENDPOINT_KEY, ENDPOINT_MS, value);
 
+export function commandMode(): boolean {
+  try {
+    return localStorage.getItem(COMMAND_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function setCommandMode(on: boolean): void {
+  try {
+    if (on) localStorage.setItem(COMMAND_KEY, "1");
+    else localStorage.removeItem(COMMAND_KEY);
+  } catch {
+    // The setting just isn't remembered.
+  }
+  for (const listener of listeners) listener();
+}
+
 function subscribe(listener: () => void): () => void {
   listeners.add(listener);
   return () => listeners.delete(listener);
 }
 
-export function useVoiceTuning(): { speechRate: number; endpointMs: number } {
-  const rate = useSyncExternalStore(subscribe, speechRate);
-  const endpoint = useSyncExternalStore(subscribe, endpointMs);
-  return { speechRate: rate, endpointMs: endpoint };
+export function useVoiceTuning(): { speechRate: number; endpointMs: number; commandMode: boolean } {
+  const rate = useSyncExternalStore(subscribe, speechRate, speechRate);
+  const endpoint = useSyncExternalStore(subscribe, endpointMs, endpointMs);
+  const command = useSyncExternalStore(subscribe, commandMode, commandMode);
+  return { speechRate: rate, endpointMs: endpoint, commandMode: command };
 }

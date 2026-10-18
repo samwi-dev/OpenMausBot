@@ -16,7 +16,7 @@ import {
 } from "@/lib/local-voice";
 import { t } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
-import { ENDPOINT_MS, SPEECH_RATE, setEndpointMs, setSpeechRate, useVoiceTuning } from "@/lib/voice-tuning";
+import { ENDPOINT_MS, SPEECH_RATE, setCommandMode, setEndpointMs, setSpeechRate, useVoiceTuning } from "@/lib/voice-tuning";
 import { voiceKeyDraftValue, type VoiceKeyDraft } from "@/lib/voice-key-draft";
 import { Select } from "./Select";
 import { Switch } from "./SettingsPrimitives";
@@ -483,6 +483,19 @@ export function VoiceSettings({
         />
         <div className="mt-1.5 text-[11.5px] leading-relaxed text-ink-secondary">
           How long a pause ends your turn on a call. Shorter answers faster but may cut you off.
+        </div>
+        <div className="mt-4 flex items-center justify-between gap-4">
+          <div>
+            <div className="text-[13px] font-medium text-ink">Command mode</div>
+            <div className="mt-0.5 text-[11.5px] leading-relaxed text-ink-secondary">
+              On a call, every sentence goes straight to the agent to carry out. Nothing is spoken back; replies show in the chat.
+            </div>
+          </div>
+          <Switch
+            checked={tuning.commandMode}
+            aria-label="Command mode on calls"
+            onClick={() => setCommandMode(!tuning.commandMode)}
+          />
         </div>
       </div>
 

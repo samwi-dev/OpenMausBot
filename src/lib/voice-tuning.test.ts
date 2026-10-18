@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { endpointMs, setEndpointMs, setSpeechRate, speechRate } from "./voice-tuning";
+import { commandMode, endpointMs, setCommandMode, setEndpointMs, setSpeechRate, speechRate } from "./voice-tuning";
 
 describe("voice tuning", () => {
   beforeEach(() => {
@@ -49,5 +49,14 @@ describe("voice tuning", () => {
     expect(speechRate()).toBe(1.25);
     expect(endpointMs()).toBe(500);
     expect(() => setSpeechRate(1.5)).not.toThrow();
+  });
+
+  it("keeps command mode off until turned on, and remembers it", () => {
+    expect(commandMode()).toBe(false);
+    setCommandMode(true);
+    expect(localStorage.getItem("omb.voice.commandMode")).toBe("1");
+    expect(commandMode()).toBe(true);
+    setCommandMode(false);
+    expect(commandMode()).toBe(false);
   });
 });

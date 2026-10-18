@@ -32,7 +32,7 @@ import { speechBridge } from "@/lib/speech-bridge";
 import { onReplyDelta } from "@/lib/reply-stream";
 import { takeSentences } from "@/lib/sentence-chunker";
 import { askVoiceFront } from "@/lib/voice-front";
-import { endpointMs } from "@/lib/voice-tuning";
+import { commandMode, endpointMs, useVoiceTuning } from "@/lib/voice-tuning";
 
 type Phase = "listening" | "sending" | "working" | "speaking";
 
@@ -499,6 +499,8 @@ function Call({ bot }: { bot: Bot }) {
   const [phase, setPhase] = useState<Phase>(initialPhase);
   const [heard, setHeard] = useState("");
   const [note, setNote] = useState<string | null>(null);
+  const [lastCommand, setLastCommand] = useState("");
+  const silent = useVoiceTuning().commandMode;
   const pushToTalk = usePushToTalk(bot.id, phase === "listening", () => {
     setNote("Push to talk couldn't start. Check Microphone and Speech Recognition access.");
   });
@@ -704,6 +706,15 @@ function Call({ bot }: { bot: Bot }) {
         return;
       }
 
+      if (commandMode()) {
+        // The helper ends the turn right after a final transcript; that end reopens the mic while "listening".
+        resetStream(true);
+        setLastCommand(said);
+        dispatch({ type: "send", botId: bot.id, text: said, threadId: bot.threadId, via: "call" });
+        move("listening");
+        return;
+      }
+
       resetStream(false);
       move("sending");
       const sendToBot = () => dispatch({ type: "send", botId: bot.id, text: said, threadId: bot.threadId, via: "call" });
@@ -744,7 +755,7 @@ function Call({ bot }: { bot: Bot }) {
       }
       if (phaseRef.current === "listening") listen();
     });
-    if (bot.busy && !approval && !question) move("working");
+    if (bot.busy && !approval && !question && !commandMode()) move("working");
     else listen();
     return () => {
       offTranscript();
@@ -763,6 +774,10 @@ function Call({ bot }: { bot: Bot }) {
     }
     if (askedQuestion.current && question?.card?.requestId !== askedQuestion.current.requestId) {
       askedQuestion.current = null;
+    }
+    if (silent) {
+      for (const m of messages) spokenIds.current.add(m.id);
+      return;
     }
     if (!approval && !question && bot.busy && phaseRef.current === "listening") {
       move("working");
@@ -830,9 +845,10 @@ function Call({ bot }: { bot: Bot }) {
         if (stillMine && phaseRef.current === "speaking") move("working");
       });
     }
-  }, [messages, approval, question, phase, bot.busy, bot.name, enqueueSpeech, hush, listen, move, say, sayThenListen]);
+  }, [messages, approval, question, phase, bot.busy, bot.name, silent, enqueueSpeech, hush, listen, move, say, sayThenListen]);
 
   useEffect(() => {
+    if (silent) return;
     if (bot.busy) {
       // An open approval keeps the mic live for yes/no; every other busy phase is half-duplex and must close capture.
       if (phaseRef.current !== "speaking" && !askedApproval.current && !askedQuestion.current) {
@@ -847,7 +863,7 @@ function Call({ bot }: { bot: Bot }) {
     ) {
       listen();
     }
-  }, [bot.busy, hush, listen, move]);
+  }, [bot.busy, silent, hush, listen, move]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -868,8 +884,11 @@ function Call({ bot }: { bot: Bot }) {
 
   const mascotState =
     phase === "listening" ? "listening" : phase === "speaking" ? "sending" : phase === "sending" ? "thinking" : "working";
-  const status =
-    phase === "listening"
+  const status = silent
+    ? bot.busy
+      ? "Command mode · working"
+      : "Command mode · listening"
+    : phase === "listening"
       ? pushToTalk
         ? "Push to talk"
         : "Listening"
@@ -900,7 +919,11 @@ function Call({ bot }: { bot: Bot }) {
       </div>
 
       <div className="min-h-[3.5rem] max-w-[560px] px-6 text-center text-[15px] leading-relaxed text-ink">
-        {phase === "listening" ? (
+        {silent && phase === "listening" ? (
+          heard || (
+            <span className="text-ink-secondary">{lastCommand ? `Last: ${lastCommand}` : "Say a command…"}</span>
+          )
+        ) : phase === "listening" ? (
           heard || (
             <span className="text-ink-secondary">
               {pushToTalk ? "Release Control + Option to send…" : "Say something…"}
