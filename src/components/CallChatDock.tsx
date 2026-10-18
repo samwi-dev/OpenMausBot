@@ -25,8 +25,6 @@ export function CallChatDock({ active, children }: { active: boolean; children: 
   const drag = useRef<{ dx: number; dy: number } | null>(null);
   const [pos, setPos] = useState<{ left: number; top: number } | null>(loadPos);
 
-  if (!active) return <div className="contents">{children}</div>;
-
   const place = (event: PointerEvent) => {
     const el = panel.current;
     const parent = el?.parentElement;
@@ -37,18 +35,20 @@ export function CallChatDock({ active, children }: { active: boolean; children: 
   };
 
   return (
+    // Same element tree either way, so starting or ending a call never remounts the chat (scroll, draft, focus).
     <div
       ref={panel}
-      data-call-chat-dock
-      style={pos ?? undefined}
-      className={`absolute z-40 flex min-h-[240px] min-w-[300px] resize flex-col overflow-hidden rounded-xl border border-hairline bg-app shadow-2xl ${pos ? "" : "bottom-4 right-4"} h-[520px] w-[380px] max-h-full max-w-full`}
+      data-call-chat-dock={active ? "" : undefined}
+      style={active ? (pos ?? undefined) : undefined}
+      className={!active ? "contents" : `absolute z-40 flex min-h-[240px] min-w-[300px] resize flex-col overflow-hidden rounded-xl border border-hairline bg-app shadow-2xl ${pos ? "" : "bottom-4 right-4"} h-[520px] w-[380px] max-h-full max-w-full`}
     >
-      <div
+      {active && <div
         data-call-chat-handle
         className="flex shrink-0 cursor-move touch-none select-none items-center border-b border-hairline px-3 py-1.5 text-[12px] font-medium text-ink-secondary"
         onPointerDown={(event) => {
-          const rect = panel.current?.getBoundingClientRect();
-          drag.current = { dx: event.clientX - (rect?.left ?? 0), dy: event.clientY - (rect?.top ?? 0) };
+          // Offsets, not the viewport rect: left/top are relative to the parent, which sits right of the sidebar.
+          const el = panel.current;
+          drag.current = { dx: event.clientX - (el?.offsetLeft ?? 0), dy: event.clientY - (el?.offsetTop ?? 0) };
           event.currentTarget.setPointerCapture?.(event.pointerId);
         }}
         onPointerMove={(event) => {
@@ -65,8 +65,8 @@ export function CallChatDock({ active, children }: { active: boolean; children: 
         }}
       >
         Chat
-      </div>
-      <div className="relative flex min-h-0 flex-1 flex-col">{children}</div>
+      </div>}
+      <div className={active ? "relative flex min-h-0 flex-1 flex-col" : "contents"}>{children}</div>
     </div>
   );
 }
