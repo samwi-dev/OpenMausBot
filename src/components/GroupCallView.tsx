@@ -40,9 +40,12 @@ export function GroupCallButton({ group, members }: { group: Group; members: Bot
   );
 }
 
+export function useGroupCallActive(groupId: string) {
+  return useOnCall() === groupId;
+}
+
 export function GroupCallOverlay({ group, members }: { group: Group; members: Bot[] }) {
-  const active = useOnCall() === group.id;
-  if (!active) return null;
+  if (!useGroupCallActive(group.id)) return null;
   return <GroupCall group={group} members={members} />;
 }
 
@@ -456,7 +459,7 @@ function GroupCall({ group, members }: { group: Group; members: Bot[] }) {
             : "Working";
 
   return (
-    <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-6 bg-app/95 px-8 backdrop-blur-sm">
+    <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-6 bg-app px-8">
       <button
         onClick={() => endCall(group.id)}
         aria-label="Hang up"

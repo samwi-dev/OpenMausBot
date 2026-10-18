@@ -59,7 +59,8 @@ import { GoalRunCard } from "./GoalRunCard";
 import { AttachmentGallery, MessageAttachmentGallery, replyAttachmentGroup } from "./AttachmentGallery";
 import { VoiceNoteBubble, type VoiceNoteAttachment } from "./VoiceNoteBubble";
 import { OptionCard } from "./OptionCard";
-import { GroupCallButton, GroupCallOverlay } from "./GroupCallView";
+import { GroupCallButton, GroupCallOverlay, useGroupCallActive } from "./GroupCallView";
+import { CallChatDock } from "./CallChatDock";
 
 import { ApprovalCard } from "./ApprovalCard";
 import { QuestionCard } from "./QuestionCard";
@@ -1120,6 +1121,7 @@ function RoomSetup({ group, members }: { group: Group; members: Bot[] }) {
   );
 }
 export function GroupView({ group }: { group: Group }) {
+  const callActive = useGroupCallActive(group.id);
   const { state, dispatch } = useStore();
   const remoteClient = window.ogb?.remoteClient?.active === true;
   const { dragProps: headerDragProps, noDragStyle: headerNoDragStyle, controlsShiftStyle } = useCaptionChrome();
@@ -1314,6 +1316,7 @@ export function GroupView({ group }: { group: Group }) {
       {membersOpen && !remoteClient && !group.dm && (
         <ManageMembersPanel group={group} onClose={closeMembers} triggerRef={membersTriggerRef} />
       )}
+      <CallChatDock active={callActive}>
       <GlassScrollFrame className="flex-1 [--glass-tint:var(--color-app)]">
       {/* z-[25]: above the room set-up card (z-20), below the GroupCallOverlay (z-30). */}
       <GlassBar edge="top" className="z-[25]">
@@ -1611,6 +1614,7 @@ export function GroupView({ group }: { group: Group }) {
       />
       </div>
       </GlassScrollFrame>
+      </CallChatDock>
     </main>
   );
 }

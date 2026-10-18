@@ -173,6 +173,6 @@ describe("call modes", () => {
     configureLiveMedia({ getUserMedia: () => Promise.reject(new Error("no microphone")) });
     await startLiveCall({ botId: bot.id, threadId: bot.threadId });
     startCall(bot.id);
-    expect(render(createElement(CallOverlay, { bot }))).toContain("backdrop-blur-sm");
+    expect(render(createElement(CallOverlay, { bot }))).toContain("bg-app");
   });
 });

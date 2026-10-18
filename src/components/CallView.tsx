@@ -462,13 +462,18 @@ export function CallModeMenu({ id, mode, onChoose, onClose, placement = "header"
   );
 }
 
-export function CallOverlay({ bot }: { bot: Bot }) {
-  const active = useOnCall() === bot.id;
+// On a Take turns call with this bot (a Live call has its own bar and leaves the chat alone).
+export function useTurnsCallActive(botId: string) {
+  const active = useOnCall() === botId;
   const media = useLiveMedia();
-  const onLiveCall = media.botId === bot.id && isLiveCallRunning(media.phase);
-  if (!active || onLiveCall) return null;
+  const onLiveCall = media.botId === botId && isLiveCallRunning(media.phase);
+  return active && !onLiveCall;
+}
+
+export function CallOverlay({ bot }: { bot: Bot }) {
+  if (!useTurnsCallActive(bot.id)) return null;
   return (
-    <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-6 bg-app/95 backdrop-blur-sm">
+    <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-6 bg-app">
       <Call key="turns" bot={bot} />
     </div>
   );

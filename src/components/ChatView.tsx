@@ -116,7 +116,8 @@ import {
 import { CitationSelectionToolbar, SentCitations } from "./CitationUI";
 
 import { SpeakButton } from "./SpeakButton";
-import { CallOverlay } from "./CallView";
+import { CallOverlay, useTurnsCallActive } from "./CallView";
+import { CallChatDock } from "./CallChatDock";
 import { LiveCallBar } from "./LiveCallBar";
 import { LiveCallChip } from "./LiveCallPill";
 import { effectivePlace, toolPlace, type EffectivePlace } from "@/lib/place";
@@ -1027,6 +1028,7 @@ function chiefOfStaffBadge(bot: Bot) {
 
 export function ChatView({ bot: profile }: { bot: Bot }) {
   const bot = useMemo(() => currentTaskBot(profile), [profile]);
+  const turnsCallActive = useTurnsCallActive(bot.id);
   const { state, dispatch } = useStore();
   const showThreads = useShowThreads();
   const remoteClient = window.ogb?.remoteClient?.active === true;
@@ -1209,6 +1211,7 @@ export function ChatView({ bot: profile }: { bot: Bot }) {
     <ThreadLinkContext value={threadLink}>
     <main className="relative flex h-full min-w-0 flex-1 flex-col bg-app">
       <CallOverlay bot={bot} />
+      <CallChatDock active={turnsCallActive}>
       <GlassScrollFrame className="flex-1 [--glass-tint:var(--color-app)]">
       {/* z-[25]: above the room set-up card (z-20), below the CallOverlay (z-30). */}
       <GlassBar edge="top" className="z-[25]">
@@ -1489,7 +1492,7 @@ export function ChatView({ bot: profile }: { bot: Bot }) {
       )}
       </div>
       </GlassScrollFrame>
-
+      </CallChatDock>
     </main>
     </ThreadLinkContext>
   );
