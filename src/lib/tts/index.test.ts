@@ -119,6 +119,46 @@ describe("Speaker lifecycle", () => {
     ]);
     expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:voice-test");
   });
+
+  it("warm starts synthesis ahead of speak, which then reuses it without refetching", async () => {
+    const fetchMock = vi.fn(async (input: string | URL | Request) =>
+      String(input).endsWith("/prepare")
+        ? json({ ready: true, utterances: ["Warm one."] })
+        : new Response(new Blob(["mp3"]), { status: 200 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const speaker = new Speaker();
+    speaker.warm("Warm one.", { voiceId: "v" });
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+
+    const speaking = speaker.speak("Warm one.", { voiceId: "v" });
+    await vi.waitFor(() => expect(FakeAudio.latest).not.toBeNull());
+    FakeAudio.latest!.onended?.();
+    await speaking;
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("discardWarm aborts warmed requests so speak fetches fresh", async () => {
+    const signals: AbortSignal[] = [];
+    const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      if (init?.signal) signals.push(init.signal);
+      return String(input).endsWith("/prepare")
+        ? json({ ready: true, utterances: ["Gone."] })
+        : new Response(new Blob(["mp3"]), { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const speaker = new Speaker();
+    speaker.warm("Gone.");
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    speaker.discardWarm();
+    expect(signals[0].aborted).toBe(true);
+
+    const speaking = speaker.speak("Gone.");
+    await vi.waitFor(() => expect(FakeAudio.latest).not.toBeNull());
+    FakeAudio.latest!.onended?.();
+    await speaking;
+    expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(3);
+  });
 });
 
 describe("external voice claims", () => {

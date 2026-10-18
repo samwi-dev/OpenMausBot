@@ -576,9 +576,11 @@ function Call({ bot }: { bot: Bot }) {
   const enqueueSpeech = useCallback(
     (text: string) => {
       const epoch = queueEpoch.current;
+      // Synthesis starts now so the voice for sentence N+1 is ready while sentence N is still playing.
+      if (alive.current && currentCall() === bot.id) speaker.warm(text, { voiceId: bot.voice });
       speakQueue.current = speakQueue.current.then((ok) => (ok && epoch === queueEpoch.current ? say(text) : false));
     },
-    [say],
+    [bot.id, bot.voice, say],
   );
 
   /** `mute` also drops the rest of the reply that is still streaming in; the next user turn lifts it. */
@@ -587,6 +589,7 @@ function Call({ bot }: { bot: Bot }) {
     streamed.current = "";
     queueEpoch.current += 1;
     speakQueue.current = Promise.resolve(true);
+    speaker.discardWarm();
     ignoreDeltas.current = mute;
   }, []);
 
@@ -618,6 +621,7 @@ function Call({ bot }: { bot: Bot }) {
       alive.current = false;
       sayGeneration.current += 1;
       queueEpoch.current += 1;
+      speaker.discardWarm();
       // StrictMode remounts effects once in development; a microtask tells that probe from real navigation.
       deferCallCleanup(bot.id, () => alive.current);
     };

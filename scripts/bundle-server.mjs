@@ -132,6 +132,12 @@ const catalogSnapshot = join(root, "dist-server", "model-catalog", "models-dev.s
 mkdirSync(dirname(catalogSnapshot), { recursive: true });
 copyFileSync(join(server, "model-catalog", "models-dev.snapshot.json"), catalogSnapshot);
 
+// The warm edge-tts worker (server/tts/edge.ts) runs under the user's Python, so it must be a real file; the bundle
+// looks for it under tts/ beside itself.
+const edgeWorkerDest = join(root, "dist-server", "tts", "edge-worker.py");
+mkdirSync(dirname(edgeWorkerDest), { recursive: true });
+copyFileSync(join(server, "tts", "edge-worker.py"), edgeWorkerDest);
+
 // Pi loads this through its own jiti and supplies TypeBox. Inline our local
 // policy module so the extension also works without the source checkout;
 // keep the Pi-owned dependency external and retain the .ts loading contract.

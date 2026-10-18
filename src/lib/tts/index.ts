@@ -21,6 +21,12 @@ interface SpeakOptions {
 
 type TtsPrepareBody = { ready?: boolean; utterances?: string[]; error?: string };
 type TtsErrorBody = { error?: string };
+type Rendered = { blob: Blob; error?: never } | { blob?: never; error: unknown };
+/** Synthesis started before its turn to play; every request belongs to `controller`. */
+interface Warmed {
+  controller: AbortController;
+  items: Promise<{ utterance: string; rendered: Promise<Rendered> }[]>;
+}
 
 const IDLE: SpeechSnapshot = { status: "idle" };
 
@@ -36,6 +42,7 @@ export class Speaker {
   private settleLocalSpeech: ((finished: boolean) => void) | null = null;
   /** Identity is the claim object, not the callback, so an older release cannot clear a newer claim. */
   private externalClaim: { pause: () => void } | null = null;
+  private warmed = new Map<string, Warmed[]>();
 
   subscribe(fn: (s: SpeechSnapshot) => void): () => void {
     this.watchers.add(fn);
@@ -74,6 +81,43 @@ export class Speaker {
     if (this.snapshot.status !== "idle" || this.snapshot.error) this.set(IDLE);
   }
 
+  private warmKey(text: string, voiceId: string | undefined) {
+    return `${voiceId ?? ""}\n${text}`;
+  }
+
+  /** Starts synthesis for a sentence that will be spoken later; `speak` with the same text and voice picks it up. */
+  warm(text: string, opts: Pick<SpeakOptions, "voiceId"> = {}) {
+    if (localSystemVoiceActive()) return;
+    const controller = new AbortController();
+    const items = this.prepare(text, opts.voiceId, controller.signal).then((utterances) =>
+      utterances.map((utterance) => ({ utterance, rendered: this.renderSafe(utterance, opts.voiceId, controller.signal) })),
+    );
+    items.catch(() => {});
+    const key = this.warmKey(text, opts.voiceId);
+    this.warmed.set(key, [...(this.warmed.get(key) ?? []), { controller, items }]);
+  }
+
+  /** Aborts and forgets every warmed sentence that was never spoken. */
+  discardWarm() {
+    for (const list of this.warmed.values()) for (const entry of list) entry.controller.abort();
+    this.warmed.clear();
+  }
+
+  private takeWarm(text: string, voiceId: string | undefined): Warmed | undefined {
+    const key = this.warmKey(text, voiceId);
+    const list = this.warmed.get(key);
+    const entry = list?.shift();
+    if (list && !list.length) this.warmed.delete(key);
+    return entry;
+  }
+
+  private renderSafe(text: string, voiceId: string | undefined, signal: AbortSignal): Promise<Rendered> {
+    return this.render(text, voiceId, signal).then(
+      (blob) => ({ blob }),
+      (error: unknown) => ({ error }),
+    );
+  }
+
   claimExternalVoice(pause: () => void): () => void {
     this.stop();
     const claim = { pause };
@@ -101,7 +145,8 @@ export class Speaker {
   async speak(text: string, opts: SpeakOptions = {}): Promise<void> {
     this.stop();
     const mine = this.token;
-    const controller = new AbortController();
+    const warm = this.takeWarm(text, opts.voiceId);
+    const controller = warm?.controller ?? new AbortController();
     this.request = controller;
     const live = () => this.token === mine && !controller.signal.aborted;
 
@@ -112,8 +157,13 @@ export class Speaker {
       return;
     }
     let utterances: string[];
+    let preRendered: Promise<Rendered>[] | undefined;
     try {
-      utterances = await this.prepare(text, opts.voiceId, controller.signal);
+      if (warm) {
+        const items = await warm.items;
+        utterances = items.map((item) => item.utterance);
+        preRendered = items.map((item) => item.rendered);
+      } else utterances = await this.prepare(text, opts.voiceId, controller.signal);
     } catch (e) {
       if (live()) this.set({ ...IDLE, error: e instanceof Error ? e.message : String(e) });
       if (this.request === controller) this.request = null;
@@ -126,16 +176,12 @@ export class Speaker {
       return;
     }
 
-    type Rendered = { blob: Blob; error?: never } | { blob?: never; error: unknown };
-    const render = (utterance: string): Promise<Rendered> =>
-      this.render(utterance, opts.voiceId, controller.signal).then(
-        (blob) => ({ blob }),
-        (error: unknown) => ({ error }),
-      );
-    let next: Promise<Rendered> | null = render(utterances[0]);
+    const render = (i: number): Promise<Rendered> =>
+      preRendered?.[i] ?? this.renderSafe(utterances[i], opts.voiceId, controller.signal);
+    let next: Promise<Rendered> | null = render(0);
     for (let i = 0; i < utterances.length; i += 1) {
       const current = next;
-      next = i + 1 < utterances.length ? render(utterances[i + 1]) : null;
+      next = i + 1 < utterances.length ? render(i + 1) : null;
       if (!current) break;
       const rendered = await current;
       if ("error" in rendered) {
