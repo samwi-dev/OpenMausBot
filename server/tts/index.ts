@@ -3,12 +3,13 @@ import { voiceCredential } from "../included-services.ts";
 import * as chatterbox from "./chatterbox.ts";
 import * as elevenlabs from "./elevenlabs.ts";
 import * as grok from "./grok.ts";
+import * as edge from "./edge.ts";
 import * as tfd from "./tfd.ts";
 import { tfdCredential } from "../tfd-credential.ts";
 import * as fish from "./fish.ts";
 import * as systemVoices from "./system-voices.ts";
 
-export type VoiceProvider = "elevenlabs" | "fish" | "system" | "chatterbox" | "xai" | "tfd";
+export type VoiceProvider = "elevenlabs" | "fish" | "system" | "chatterbox" | "xai" | "tfd" | "edge";
 
 export class NoVoiceConfigured extends Error {
   // Not a parameter property: the harness runs under strip-only `node --experimental-strip-types`, which rejects one at load.
@@ -29,13 +30,14 @@ const elevenLabs = (cfg: AppConfig) => voiceCredential(cfg.tts?.key);
 
 export function voiceProvider(cfg: AppConfig): VoiceProvider {
   const provider = cfg.tts?.provider;
-  return provider === "xai" || provider === "tfd" || provider === "fish" || provider === "system" || provider === "chatterbox" ? provider : "elevenlabs";
+  return provider === "xai" || provider === "tfd" || provider === "edge" || provider === "fish" || provider === "system" || provider === "chatterbox" ? provider : "elevenlabs";
 }
 
 export function providerConfigured(cfg: AppConfig): boolean {
   const provider = voiceProvider(cfg);
   if (provider === "xai") return Boolean(cfg.xai?.key);
   if (provider === "tfd") return Boolean(tfdCredential(cfg));
+  if (provider === "edge") return edge.edgeAvailable();
   if (provider === "system") return systemVoices.systemVoicesAvailable();
   if (provider === "chatterbox") return Boolean(cfg.tts?.baseUrl?.trim());
   if (provider === "fish") return Boolean(cfg.tts?.fishKey);
@@ -46,6 +48,7 @@ export function voiceConfigured(cfg: AppConfig): boolean {
   const provider = voiceProvider(cfg);
   if (provider === "xai") return Boolean(cfg.xai?.key && cfg.tts?.voice);
   if (provider === "tfd") return Boolean(tfdCredential(cfg) && cfg.tts?.voice);
+  if (provider === "edge") return edge.edgeAvailable() && Boolean(cfg.tts?.voice);
   if (provider === "system") {
     return systemVoices.systemVoicesAvailable() && Boolean(cfg.tts?.voice);
   }
@@ -58,6 +61,7 @@ export function voiceReady(cfg: AppConfig, voiceId?: string): boolean {
   const provider = voiceProvider(cfg);
   if (provider === "xai") return Boolean(cfg.xai?.key && (voiceId || cfg.tts?.voice));
   if (provider === "tfd") return Boolean(tfdCredential(cfg) && (voiceId || cfg.tts?.voice));
+  if (provider === "edge") return edge.edgeAvailable() && Boolean(voiceId || cfg.tts?.voice);
   if (provider === "system") {
     return systemVoices.systemVoicesAvailable() && Boolean(voiceId || cfg.tts?.voice);
   }
@@ -90,6 +94,7 @@ export async function listVoices(cfg: AppConfig, run?: systemVoices.Runner): Pro
   const provider = voiceProvider(cfg);
   if (provider === "xai") return cfg.xai?.key ? grok.listVoices(cfg.xai.key) : [];
   if (provider === "tfd") return tfdCredential(cfg) ? tfd.listVoices() : [];
+  if (provider === "edge") return edge.listVoices();
   if (provider === "system") return systemVoices.listSystemVoices(run);
   if (provider === "chatterbox") {
     const baseUrl = cfg.tts?.baseUrl?.trim();
@@ -119,6 +124,11 @@ export function speak(cfg: AppConfig, text: string, voiceId?: string, run?: syst
     const voice = voiceId || cfg.tts?.voice;
     if (!voice) throw new NoVoiceConfigured("voice");
     return tfd.synthesize(text, voice, cred);
+  }
+  if (provider === "edge") {
+    const voice = voiceId || cfg.tts?.voice;
+    if (!voice) throw new NoVoiceConfigured("voice");
+    return edge.synthesizeEdge(text, voice, run);
   }
   if (provider === "system") {
     const voice = voiceId || cfg.tts?.voice;

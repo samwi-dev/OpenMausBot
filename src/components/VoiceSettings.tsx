@@ -144,7 +144,7 @@ export function VoiceSettings({
     onPatch({ voice: voiceId });
   };
 
-  const setProvider = (next: "elevenlabs" | "fish" | "system" | "chatterbox" | "xai" | "tfd") => {
+  const setProvider = (next: "elevenlabs" | "fish" | "system" | "chatterbox" | "xai" | "tfd" | "edge") => {
     if (next === provider || switching || (next === "system" && !systemVoicesAvailable)) return;
     setSwitching(true);
     setKeyDraft({ provider: null, value: "" });
@@ -222,6 +222,8 @@ export function VoiceSettings({
                   ? ` ${t("voice.grok.sharedKey")}`
                 : provider === "tfd"
                   ? " it uses your TFD engine (Settings → Engines)."
+                : provider === "edge"
+                  ? " it uses Microsoft Edge voices through the edge-tts tool on the host."
                 : provider === "chatterbox"
                   ? " the Chatterbox server address is shared by this installation."
                   : ` the ${cloudProvider?.name ?? "voice provider"} key is shared by this installation.`}</>}
@@ -266,6 +268,7 @@ export function VoiceSettings({
               { value: "chatterbox", label: "Chatterbox (local)", available: true },
               { value: "xai", label: t("voice.grok.label"), available: true },
               { value: "tfd", label: "TFD", available: true },
+              { value: "edge", label: "Edge (Microsoft)", available: true },
             ] as const).map((option) => (
               <button
                 key={option.value}
