@@ -646,7 +646,7 @@ function Call({ bot }: { bot: Bot }) {
       }
 
       move("sending");
-      dispatch({ type: "send", botId: bot.id, text: said, threadId: bot.threadId });
+      dispatch({ type: "send", botId: bot.id, text: said, threadId: bot.threadId, via: "call" });
     });
     const offEnd = bridge.onSpeechEnd(({ code, reason }) => {
       if (!alive.current || currentCall() !== bot.id) return;

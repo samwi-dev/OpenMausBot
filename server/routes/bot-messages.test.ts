@@ -397,3 +397,13 @@ describe("POST /api/bots/:id/messages with widgetAction", () => {
     expect(state.accepted.map((input) => input.replyTo?.id)).toEqual([undefined, widgetId]);
   });
 });
+
+describe("POST /api/bots/:id/messages from a Take turns call", () => {
+  it("marks a spoken message as a call turn, and never a typed one", async () => {
+    const { threadId, state, post } = await fixture();
+    expect((await post({ threadId, text: "今天天氣怎麼樣", via: "call" })).status).toBe(202);
+    expect((await post({ threadId, text: "typed", via: "sms" })).status).toBe(202);
+    expect(state.accepted[0].via).toBe("call");
+    expect(state.accepted[1].via).toBeUndefined();
+  });
+});

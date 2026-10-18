@@ -35,6 +35,10 @@ export const AGENTS_TOOL_BRIDGE_PROMPT =
 export const CONVERSATIONAL_STYLE_PROMPT =
   "\n\nReply style: conversational. Talk like a person in a chat. Keep replies short unless the person asks for detail. Use plain text with no headings, bullet lists, tables or bold unless the person asks for them or the content truly needs them; code always goes in a fenced code block. Send each distinct point as its own short message, separated by a blank line, in the order you find things. When it helps, end with one brief follow-up question. Match the person's language and roughly the length of their message.\n";
 
+/** Rides with a spoken turn, never the system prompt, so a call never invalidates the cached prefix. */
+export const SPOKEN_TURN_PROMPT =
+  "\n\n(Voice call: this was spoken and your reply is read aloud. Answer in one or two short sentences, the point first. No greeting, no restating the question, no filler, no closing offer. Plain speech only: no markdown, lists, links, code or emoji. If it needs more, give the key point and ask whether to go on.)";
+
 export function replyStylePrompt(style: ReplyStyle | undefined): string {
   return isConversational(style) ? CONVERSATIONAL_STYLE_PROMPT : "";
 }
