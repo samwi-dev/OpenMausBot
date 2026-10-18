@@ -45,7 +45,15 @@ describe("TFD TTS", () => {
     const r = await tfd.synthesize("你好", "serena", cred);
     expect(r.mime).toBe("audio/mpeg");
     expect(seen[0]).toMatchObject({ url: "/v1/audio/speech", authorization: "Bearer fixture-key" });
-    expect(JSON.parse(seen[0].body.toString("utf8"))).toEqual({ model: "qwen3-tts", input: "你好", voice: "serena", response_format: "mp3" });
+    expect(JSON.parse(seen[0].body.toString("utf8"))).toEqual({ model: "qwen3-tts", input: "你好", voice: "serena", response_format: "mp3", language: "Chinese" });
+  });
+  it("sends Chinese as Simplified with the language set, and leaves other languages alone", async () => {
+    await tfd.synthesize("記得帶傘，會議改到三點。", "serena", cred);
+    await tfd.synthesize("See you at three.", "serena", cred);
+    const [zh, en] = seen.slice(-2).map((request) => JSON.parse(request.body.toString("utf8")));
+    expect(zh).toMatchObject({ input: "记得带伞，会议改到三点。", language: "Chinese" });
+    expect(en.input).toBe("See you at three.");
+    expect(en).not.toHaveProperty("language");
   });
   it("tolerates octet-stream but rejects other types", async () => {
     contentType = "application/octet-stream";

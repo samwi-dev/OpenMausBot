@@ -1,7 +1,12 @@
+import * as OpenCC from "opencc-js";
 import type { TfdCredential } from "../tfd-credential.ts";
 import type { Audio, Voice } from "./elevenlabs.ts";
 
 const VOICES = ["serena", "vivian", "uncle_fu", "dylan", "eric", "ryan", "aiden", "ono_anna", "sohee"];
+
+// qwen3-tts misreads Traditional characters (帶傘 comes out as 帶贓) and guesses the language on short lines.
+const toSimplified = OpenCC.Converter({ from: "tw", to: "cn" });
+const HAN = /\p{Script=Han}/u;
 
 function refusal(status: number): string {
   if (status === 401 || status === 403) return "TFD rejected the key. Check the TFD engine in Settings → Engines.";
@@ -19,7 +24,9 @@ export async function synthesize(text: string, voiceId: string, cred: TfdCredent
     response = await fetch(`${cred.url}/audio/speech`, {
       method: "POST",
       headers: { authorization: `Bearer ${cred.key}`, "content-type": "application/json" },
-      body: JSON.stringify({ model: "qwen3-tts", input: text, voice: voiceId, response_format: "mp3" }),
+      body: JSON.stringify(HAN.test(text)
+        ? { model: "qwen3-tts", input: toSimplified(text), voice: voiceId, response_format: "mp3", language: "Chinese" }
+        : { model: "qwen3-tts", input: text, voice: voiceId, response_format: "mp3" }),
       redirect: "error",
       signal: AbortSignal.timeout(60_000),
     });

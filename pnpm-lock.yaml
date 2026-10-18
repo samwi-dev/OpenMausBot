@@ -86,6 +86,9 @@ importers:
       mermaid:
         specifier: ^12.1.0
         version: 12.1.0
+      opencc-js:
+        specifier: 1.4.2
+        version: 1.4.2
       papaparse:
         specifier: ^5.7.0
         version: 5.7.0
@@ -156,6 +159,9 @@ importers:
       '@types/novnc__novnc':
         specifier: 1.6.0
         version: 1.6.0
+      '@types/opencc-js':
+        specifier: 1.0.3
+        version: 1.0.3
       '@types/papaparse':
         specifier: ^5.5.2
         version: 5.5.2
@@ -2320,6 +2326,9 @@ packages:
   '@types/novnc__novnc@1.6.0':
     resolution: {integrity: sha512-kIH/PQACbf9qj6whiSXRKECpyzgs6IFNVsW4wohyqQUZfQHdLhuGRMLi9XEhBiISSh0lKCSbBa7kScuPu9Gk+Q==}
 
+  '@types/opencc-js@1.0.3':
+    resolution: {integrity: sha512-TENp7YkI2hNlc4dplhivSHj0hU4DORCK56VY7rniaSfA5f87uD3uv+kPIRuH9h64TGv976iVFi4gEHZZtS2y8Q==}
+
   '@types/papaparse@5.5.2':
     resolution: {integrity: sha512-gFnFp/JMzLHCwRf7tQHrNnfhN4eYBVYYI897CGX4MY1tzY9l2aLkVyx2IlKZ/SAqDbB3I1AOZW5gTMGGsqWliA==}
 
@@ -4270,6 +4279,9 @@ packages:
 
   oniguruma-to-es@4.3.6:
     resolution: {integrity: sha512-csuQ9x3Yr0cEIs/Zgx/OEt9iBw9vqIunAPQkx19R/fiMq2oGVTgcMqO/V3Ybqefr1TBvosI6jU539ksaBULJyA==}
+
+  opencc-js@1.4.2:
+    resolution: {integrity: sha512-EdcspgdROiCCZDM+jZR6Pa670xW+EW2QhctPBQ8gRjg6lrx4IHEl+2s+kt5izk/TkxVRgdWuFgaGkaEdIUfdaw==}
 
   oxlint@1.80.0:
     resolution: {integrity: sha512-5nTiSps4qdbCWLbxzuO00alHkEO2exR9YMN/ig6QXWrLsYSG0KaObOAM+l6oU2LcKPWoSAGYbkZIGEu1ViiWKA==}
@@ -7013,6 +7025,8 @@ snapshots:
 
   '@types/novnc__novnc@1.6.0': {}
 
+  '@types/opencc-js@1.0.3': {}
+
   '@types/papaparse@5.5.2':
     dependencies:
       '@types/node': 26.2.0
@@ -9366,6 +9380,8 @@ snapshots:
       oniguruma-parser: 0.12.2
       regex: 6.1.0
       regex-recursion: 6.0.2
+
+  opencc-js@1.4.2: {}
 
   oxlint@1.80.0:
     optionalDependencies:
