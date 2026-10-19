@@ -1516,7 +1516,8 @@ ipcMain.on("desktop:unread-count", (event, value) => {
   applyUnreadBadge(sender);
 });
 
-const { LOCAL_ID, activeEnvironment, activeRemote, allowedOrigins, bootEnvironmentDir, parseEnvironments, parseHostedWorkspaceLink, serializeEnvironments, startupEnvironmentDir, withActive, withEnvironment, withEnvironmentLook, withLocalEnvironment, withMicrophone, withoutEnvironment, workspaceMenuTemplate, workspaceNavigationAllowed, workspaceSenderAllowed, workspaceSummary, workspaceWindowTitle } = environmentsModule;
+const { LOCAL_ID, activeEnvironment, activeRemote, allowedOrigins, bootEnvironmentDir, parseEnvironments, parseHostedWorkspaceLink, serializeEnvironments, startupEnvironmentDir, withActive, withEnvironment, withEnvironmentLook, withLocalEnvironment, withMicrophone, withoutEnvironment, workspaceMenuTemplate, workspaceNavigationAllowed, workspaceSenderAllowed, workspaceSummary, workspaceWindowTitle: baseWorkspaceWindowTitle } = environmentsModule;
+const workspaceWindowTitle = (...args) => app.isPackaged ? baseWorkspaceWindowTitle(...args) : baseWorkspaceWindowTitle(...args).replace(/^OpenMausBot/, "OpenMausBot Dev");
 let environmentsState = { environments: [], activeId: LOCAL_ID };
 let computerSharing;
 const sharingPrompts = new Set();
@@ -2148,7 +2149,7 @@ function createWindow({ deferNavigation = false } = {}) {
   });
   win.setTitle(workspaceWindowTitle(environmentsState, desktopRemoteAccess));
   win.webContents.on("page-title-updated", event => {
-    if (!desktopRemoteAccess && !activeEnvironment(environmentsState)) return;
+    if (app.isPackaged && !desktopRemoteAccess && !activeEnvironment(environmentsState)) return;
     event.preventDefault();
     win.setTitle(workspaceWindowTitle(environmentsState, desktopRemoteAccess));
   });
