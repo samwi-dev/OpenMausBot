@@ -195,6 +195,11 @@ export function vpsSshTunnelArgs(alias: string, localPort: number, privateIp: st
     "-N",
     "-o",
     "BatchMode=yes",
+    // OpenSSH: with ControlMaster in the user's alias, `ssh -N -L` registers the forward on the running master and exits 0, which the caller reads as a dead tunnel.
+    "-o",
+    "ControlMaster=no",
+    "-o",
+    "ControlPath=none",
     "-o",
     "ExitOnForwardFailure=yes",
     "-o",
