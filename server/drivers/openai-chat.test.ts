@@ -318,6 +318,58 @@ describe("createOpenAIChatRuntime tool approvals", () => {
     }
   }, 20_000);
 
+  it("completes the turn when the bot itself re-runs a failed tool and it succeeds", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "omb-chat-toolretry-")); mcpDir.push(dir);
+    const script = join(dir, "fake-flaky-mcp.mjs");
+    writeFileSync(script, `#!/usr/bin/env node
+      const send = (m) => process.stdout.write(JSON.stringify(m) + "\\n");
+      let buffer = "", calls = 0;
+      process.stdin.setEncoding("utf8");
+      process.stdin.on("data", (chunk) => {
+        buffer += chunk;
+        let nl;
+        while ((nl = buffer.indexOf("\\n")) !== -1) {
+          const line = buffer.slice(0, nl); buffer = buffer.slice(nl + 1);
+          const m = JSON.parse(line);
+          if (m.method === "initialize") send({jsonrpc:"2.0",id:m.id,result:{protocolVersion:"2024-11-05",capabilities:{tools:{}}}});
+          else if (m.method === "tools/list") send({jsonrpc:"2.0",id:m.id,result:{tools:[{name:"write",description:"Fixture write",inputSchema:{type:"object",properties:{},additionalProperties:false}}]}});
+          else if (m.method === "tools/call") send({jsonrpc:"2.0",id:m.id,result:{isError:++calls === 1,content:[{type:"text",text:calls === 1 ? "boom" : "ok"}]}});
+        }
+      });
+    `);
+    chmodSync(script, 0o755);
+    const callBody = (id: string) => `data: {"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"${id}","type":"function","function":{"name":"fx_write","arguments":"{}"}}]}}]}\n\n`
+      + 'data: {"choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}]}\n\n';
+    const finalBody = 'data: {"choices":[{"index":0,"delta":{"content":"Done after retry."}}]}\n\n'
+      + 'data: {"choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}\n\n';
+    const bodies: any[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: unknown, init?: RequestInit) => {
+      if (!String(input).endsWith("/chat/completions")) return new Response(JSON.stringify({ data: [] }));
+      bodies.push(JSON.parse(String(init?.body)));
+      const body = bodies.length === 1 ? callBody("c1") : bodies.length === 2 ? callBody("c2") : finalBody;
+      return new Response(body, { headers: { "content-type": "text/event-stream" } });
+    }));
+    const instance = await OpenAICompatDriver.create({
+      instanceId: "toolretry", displayName: "Synthetic", enabled: true,
+      config: OpenAICompatDriver.decodeConfig({ url: "https://api.example.test/v1", apiKeyEnv: "K", model: "fixture" }),
+      environment: { K: "synthetic" },
+    });
+    const events: RuntimeEvent[] = [];
+    instance.adapter.onEvent((event) => events.push(event));
+    try {
+      await instance.adapter.sendTurn({
+        threadId: "toolretry", text: "Use the tool, then answer.", approvalMode: "full",
+        integrations: { custom: { fx: { command: script, args: [], env: {} } } },
+      });
+      await vi.waitFor(() => expect(events.some((event) => event.type === "turn.completed")).toBe(true), { timeout: 10_000 });
+      expect(bodies).toHaveLength(3);
+      expect(events.find((event) => event.type === "turn.completed")).toMatchObject({ ok: true });
+      expect(events.some((event) => event.type === "runtime.error")).toBe(false);
+    } finally {
+      await instance.dispose();
+    }
+  }, 20_000);
+
   describe("corrective rounds", () => {
     const toolCall = (id: string, name: string, args: unknown = {}) =>
       `data: ${JSON.stringify({ choices: [{ index: 0, delta: { tool_calls: [{ index: 0, id, type: "function", function: { name, arguments: JSON.stringify(args) } }] } }] })}\n\n`

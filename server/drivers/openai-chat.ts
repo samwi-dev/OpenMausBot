@@ -584,6 +584,7 @@ export function createOpenAIChatRuntime<Config>(options: RuntimeOptions<Config>)
       let stopReason: string | null = null;
       let failure: string | undefined;
       let toolFailed = false;
+      const failedTools = new Set<string>();
       let correctiveRounds = 0;
       const denials: string[] = [];
       const seenCalls = new Set<string>();
@@ -718,7 +719,7 @@ export function createOpenAIChatRuntime<Config>(options: RuntimeOptions<Config>)
             ...(completion.protocolReasoningDetails.length ? { reasoning_details: completion.protocolReasoningDetails } : {}),
           });
           // After a corrective round, the failure stays pending only until the bot runs tools again.
-          if (correctiveRounds && !denials.length) toolFailed = false;
+          if (correctiveRounds && !denials.length) { toolFailed = false; failedTools.clear(); }
           const screenshotParts: ChatContentPart[] = [];
           for (const call of completion.toolCalls) {
             abort.signal.throwIfAborted();
@@ -794,7 +795,8 @@ export function createOpenAIChatRuntime<Config>(options: RuntimeOptions<Config>)
             const text = safeText(result.text);
             const output = preview({ ok: result.ok, result: text });
             emit({ ...base(turn.threadId, turnId), type: "item.completed", itemType: "tool", itemId: call.id, ok: result.ok, output });
-            if (!result.ok) toolFailed = true;
+            if (!result.ok) { toolFailed = true; failedTools.add(call.function.name); }
+            else if (failedTools.delete(call.function.name) && !failedTools.size && !denials.length) toolFailed = false;
             messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify({ ok: result.ok, result: text }) });
             screenshotParts.push(...chatToolImages(call.id, result.images));
             abort.signal.throwIfAborted();
