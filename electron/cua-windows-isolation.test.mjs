@@ -119,6 +119,16 @@ describe("Windows owned CUA host", () => {
     expect(() => cua.resolveEmbeddedDriverBinary(join(fixture.home, "cua-driver.exe"))).toThrow("background CUA driver is missing");
   });
 
+  it("uses the staged background daemon in development when it exists", () => {
+    vi.stubEnv("CUA_DRIVER_PATH", "");
+    const stage = join(fixture.home, "dist-native", "cua-win32-x64");
+    mkdirSync(stage, { recursive: true });
+    writeFileSync(join(stage, "cua-driver.exe"), "inert CLI fixture");
+    expect(cua.resolveEmbeddedDriverBinary(join(stage, "cua-driver.exe"))).toBe(join(stage, "cua-driver.exe"));
+    writeFileSync(join(stage, "cua-driver-background.exe"), "inert GUI fixture");
+    expect(cua.resolveEmbeddedDriverBinary(join(stage, "cua-driver.exe"))).toBe(join(stage, "cua-driver-background.exe"));
+  });
+
   it("preserves custom and development executables", () => {
     const binary = process.env.CUA_DRIVER_PATH;
     expect(cua.resolveEmbeddedDriverBinary(binary)).toBe(binary);

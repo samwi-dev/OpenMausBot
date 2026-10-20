@@ -130,6 +130,11 @@ export function resolveDriverBinary() {
 }
 
 export function resolveEmbeddedDriverBinary(binary) {
+  if (process.platform === "win32" && !app.isPackaged && !process.env.CUA_DRIVER_PATH) {
+    const stage = path.join(app.getAppPath(), "dist-native", "cua-win32-x64");
+    const background = path.join(stage, "cua-driver-background.exe");
+    return binary === path.join(stage, "cua-driver.exe") && fs.existsSync(background) ? background : binary;
+  }
   if (process.platform !== "win32" || !app.isPackaged || process.env.CUA_DRIVER_PATH ||
       binary !== path.join(process.resourcesPath, "cua-driver.exe")) return binary;
   const background = path.join(process.resourcesPath, "cua-driver-background.exe");
