@@ -35,6 +35,7 @@
     "pair": "node --experimental-strip-types server/openmausbot.ts pair",
     "dev:server": "node --experimental-strip-types server/dev-server.ts",
     "dev:all": "node scripts/dev-all.mjs",
+    "dev:restart-server": "node scripts/dev-all.mjs --restart-server",
     "mcp": "node --experimental-strip-types scripts/mcp-server.ts",
     "control:omb": "node --experimental-strip-types scripts/control-omb.ts",
     "eval": "node --experimental-strip-types evals/runners/run-evals.ts",
