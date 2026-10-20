@@ -14,6 +14,7 @@ import { installChromeForTesting, type ChromeForTestingPin, type DownloadProgres
 import { chromeHost, resolveChromePlan, type ChromeEngine, type ChromeHost, type ChromePlan, type FoundChrome } from "./resolve.ts";
 import { IdentitySidecars } from "./sidecar.ts";
 import { browserLanguage, browserTimeZone, launcherPath, primaryScreen, writeLauncher, type Screen } from "./wrapper.ts";
+import { ensureWindowsLauncher } from "./windows-launcher.ts";
 
 type Ready = { kind: "ready"; chrome: FoundChrome; identity: ChromeIdentity; product: string; fingerprint: string };
 type State =
@@ -56,6 +57,7 @@ export interface ChromeLauncherOptions {
   install?: typeof installChromeForTesting;
   screen?: () => Promise<Screen>;
   checkLauncher?: (path: string, env: NodeJS.ProcessEnv) => Promise<void>;
+  buildWindowsLauncher?: (path: string) => Promise<void>;
   sidecars?: IdentitySidecars;
   readyWaitMs?: number;
   log?: (line: string) => void;
@@ -192,7 +194,8 @@ export class ChromeLauncher implements BrowserLaunch {
         language: browserLanguage(env), timeZone: browserTimeZone(env, platform),
         ...(platform === "darwin" ? { home: userInfo().homedir } : {}),
       }, platform);
-      if (platform !== "win32") await (this.options.checkLauncher ?? runsLauncher)(this.path, this.chromeEnv());
+      if (platform === "win32") await (this.options.buildWindowsLauncher ?? ensureWindowsLauncher)(this.path);
+      else await (this.options.checkLauncher ?? runsLauncher)(this.path, this.chromeEnv());
     }
     return { kind: "ready", chrome, identity: { userAgent: identity.userAgent, userAgentMetadata: identity.userAgentMetadata }, product: identity.product, fingerprint: chromeFingerprint(chrome.path) };
   }

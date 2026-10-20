@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 
 import { removeTempDir } from "../../testing/cleanup.ts";
-import { batchQuote, browserLanguage, browserTimeZone, launcherFlags, launcherPath, launcherScript, primaryScreen, writeLauncher, type LauncherSettings } from "./wrapper.ts";
+import { batchQuote, browserLanguage, browserTimeZone, launcherFlags, launcherPath, launcherScript, launcherScriptPath, primaryScreen, writeLauncher, type LauncherSettings } from "./wrapper.ts";
 
 const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36";
 const posix = process.platform !== "win32";
@@ -69,7 +69,8 @@ describe("the launcher agent-browser runs instead of Chrome", () => {
       `"C:\\Users\\Ada 100%%\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe" %* "--disable-blink-features=AutomationControlled" "--user-agent=${windowsUa}" "--screen-info={1536x864}"`,
       "",
     ].join("\r\n"));
-    expect(launcherPath("C:\\data", "win32")).toMatch(/chrome-launcher\.cmd$/u);
+    expect(launcherPath("C:\\data", "win32")).toMatch(/chrome-launcher\.exe$/u);
+    expect(launcherScriptPath(launcherPath("C:\\data", "win32"), "win32")).toMatch(/chrome-launcher\.cmd$/u);
     expect(() => batchQuote("--user-agent=\"quoted\"")).toThrow(/quote/);
     expect(() => batchQuote("two\r\nlines")).toThrow(/line break/);
   });

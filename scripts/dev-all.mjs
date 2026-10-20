@@ -4,30 +4,39 @@ import { createRequire } from "node:module";
 import { connect } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const root = new URL("..", import.meta.url);
-const logFile = (name) => openSync(join(tmpdir(), `omb-${name}.log`), "w");
-const listening = (port) =>
-  new Promise((resolve) => {
-    const socket = connect(port, "127.0.0.1");
-    socket.once("connect", () => { socket.destroy(); resolve(true); });
-    socket.once("error", () => resolve(false));
-  });
+const root = fileURLToPath(new URL("..", import.meta.url));
 
-async function ensure(name, command, port) {
-  if (await listening(port)) return console.log(`${name}: already on ${port}`);
-  const log = logFile(name);
-  spawn(command, { cwd: root, detached: true, shell: true, stdio: ["ignore", log, log], windowsHide: true }).unref();
-  for (let i = 0; i < 120 && !(await listening(port)); i++) await new Promise((r) => setTimeout(r, 500));
-  if (!(await listening(port))) throw new Error(`${name} did not open ${port}; see ${join(tmpdir(), `omb-${name}.log`)}`);
-  console.log(`${name}: started on ${port}`);
+// Node puts children that are not detached in a job that kills them when it exits, and a detached process has no
+// console, so a console child it starts without windowsHide opens a new one (node --watch does). A detached holder
+// starts each server with a hidden console and lives as long as it does.
+if (process.argv[2] === "--hold") {
+  spawn(process.argv[3], process.argv.slice(4), { cwd: root, stdio: "inherit", windowsHide: true }).on("exit", (code) => process.exit(code ?? 0));
+} else {
+  const logFile = (name) => openSync(join(tmpdir(), `omb-${name}.log`), "w");
+  const listening = (port) =>
+    new Promise((resolve) => {
+      const socket = connect(port, "127.0.0.1");
+      socket.once("connect", () => { socket.destroy(); resolve(true); });
+      socket.once("error", () => resolve(false));
+    });
+
+  async function ensure(name, args, port) {
+    if (await listening(port)) return console.log(`${name}: already on ${port}`);
+    const log = logFile(name);
+    spawn(process.execPath, [fileURLToPath(import.meta.url), "--hold", process.execPath, ...args], { cwd: root, detached: true, stdio: ["ignore", log, log] }).unref();
+    for (let i = 0; i < 120 && !(await listening(port)); i++) await new Promise((r) => setTimeout(r, 500));
+    if (!(await listening(port))) throw new Error(`${name} did not open ${port}; see ${join(tmpdir(), `omb-${name}.log`)}`);
+    console.log(`${name}: started on ${port}`);
+  }
+
+  await Promise.all([
+    ensure("dev", [join(root, "node_modules", "vite", "bin", "vite.js")], 5199),
+    ensure("dev-server", ["--watch", "--experimental-strip-types", "server/dev-server.ts"], 8799),
+  ]);
+  const electronLog = logFile("electron");
+  const electron = createRequire(import.meta.url)("electron");
+  spawn(electron, [".", "--remote-debugging-port=9223"], { cwd: root, detached: true, stdio: ["ignore", electronLog, electronLog] }).unref();
+  console.log(`electron: started; log ${join(tmpdir(), "omb-electron.log")}`);
 }
-
-await Promise.all([
-  ensure("dev", "pnpm dev", 5199),
-  ensure("dev-server", "node --watch --experimental-strip-types server/dev-server.ts", 8799),
-]);
-const electronLog = logFile("electron");
-const electron = createRequire(import.meta.url)("electron");
-spawn(electron, [".", "--remote-debugging-port=9223"], { cwd: root, detached: true, stdio: ["ignore", electronLog, electronLog] }).unref();
-console.log(`electron: started; log ${join(tmpdir(), "omb-electron.log")}`);

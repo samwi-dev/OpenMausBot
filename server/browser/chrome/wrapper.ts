@@ -1,6 +1,6 @@
 // agent-browser runs AGENT_BROWSER_EXECUTABLE_PATH with its own arguments. It splits AGENT_BROWSER_ARGS at commas (0.37),
 // which cut the user agent at "(KHTML,", so the identity flags ride a generated launcher instead: a shell script that execs
-// Chrome (same process, same pid), or on Windows a batch file, which Rust's Command runs through cmd.exe.
+// Chrome (same process, same pid), or on Windows a batch file whose command line a windowless launcher runs.
 import { execFile } from "node:child_process";
 import { chmodSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -34,7 +34,12 @@ export function launcherFlags(settings: LauncherSettings, platform: NodeJS.Platf
 }
 
 export function launcherPath(dataDir: string, platform: NodeJS.Platform = process.platform): string {
-  return join(dataDir, "browser", platform === "win32" ? "chrome-launcher.cmd" : "chrome-launcher.sh");
+  return join(dataDir, "browser", platform === "win32" ? "chrome-launcher.exe" : "chrome-launcher.sh");
+}
+
+/** On Windows the launcher executable runs the command line of the batch file beside it. */
+export function launcherScriptPath(path: string, platform: NodeJS.Platform = process.platform): string {
+  return platform === "win32" ? path.replace(/\.exe$/u, ".cmd") : path;
 }
 
 export function shellQuote(value: string): string {
@@ -64,7 +69,7 @@ export function launcherScript(settings: LauncherSettings, platform: NodeJS.Plat
 
 export function writeLauncher(path: string, settings: LauncherSettings, platform: NodeJS.Platform = process.platform): void {
   mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
-  writeFileAtomic(path, launcherScript(settings, platform), { mode: 0o700 });
+  writeFileAtomic(launcherScriptPath(path, platform), launcherScript(settings, platform), { mode: 0o700 });
   if (platform !== "win32") chmodSync(path, 0o700);
 }
 
