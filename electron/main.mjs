@@ -1519,7 +1519,7 @@ ipcMain.on("desktop:unread-count", (event, value) => {
 const { LOCAL_ID, activeEnvironment, activeRemote, allowedOrigins, devLocalOnly, bootEnvironmentDir, parseEnvironments, parseHostedWorkspaceLink, serializeEnvironments, startupEnvironmentDir, withActive, withEnvironment, withEnvironmentLook, withLocalEnvironment, withMicrophone, withoutEnvironment, workspaceMenuTemplate, workspaceNavigationAllowed, workspaceSenderAllowed, workspaceSummary, workspaceWindowTitle: baseWorkspaceWindowTitle } = environmentsModule;
 const workspaceWindowTitle = (...args) => app.isPackaged ? baseWorkspaceWindowTitle(...args) : baseWorkspaceWindowTitle(...args).replace(/^OpenMausBot/, "OpenMausBot Dev");
 let environmentsState = { environments: [], activeId: LOCAL_ID };
-// OMB_DEV_REMOTE=1 lets a dev run follow the saved remote choice.
+// A dev run starts on This computer; OMB_DEV_REMOTE=1 lets it start on the saved remote choice.
 const keepDevLocal = (state) => (app.isPackaged || process.env.OMB_DEV_REMOTE === "1" ? state : devLocalOnly(state));
 let computerSharing;
 const sharingPrompts = new Set();
@@ -1685,7 +1685,7 @@ function refreshApplicationMenu() {
 
 function persistEnvironments(next) {
   writeEnvironments(next);
-  environmentsState = keepDevLocal(next);
+  environmentsState = next;
   refreshApplicationMenu();
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setTitle(workspaceWindowTitle(environmentsState, desktopRemoteAccess));
 }

@@ -347,3 +347,10 @@ test("devLocalOnly puts a remote active environment back on This computer and le
   const onLocal = { environments: [remote, local], activeId: "l1" };
   assert.equal(env.devLocalOnly(onLocal), onLocal);
 });
+
+test("a dev run starts on This computer but still switches when the person picks a remote", async () => {
+  const { readFileSync } = await import("node:fs");
+  const main = readFileSync(new URL("./main.mjs", import.meta.url), "utf8");
+  assert.equal(main.match(/keepDevLocal\(/g)?.length, 1);
+  assert.match(main, /environmentsState = keepDevLocal\(readEnvironments\(\)\);/);
+});
