@@ -338,3 +338,12 @@ test("parseEnvironments dedups local dirs on the same normalized key", () => {
     { id: "l2", kind: "local", name: "B", dataDir: "/Users/me/.openmausbot-b" },
   ]).length, 2);
 });
+
+test("devLocalOnly puts a remote active environment back on This computer and leaves local ones alone", () => {
+  const remote = { id: "r1", kind: "remote", origin: "https://cloud.example" };
+  const local = { id: "l1", kind: "local", dataDir: "/tmp/x" };
+  const state = { environments: [remote, local], activeId: "r1" };
+  assert.deepEqual(env.devLocalOnly(state), { environments: [remote, local], activeId: env.LOCAL_ID });
+  const onLocal = { environments: [remote, local], activeId: "l1" };
+  assert.equal(env.devLocalOnly(onLocal), onLocal);
+});

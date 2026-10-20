@@ -277,6 +277,10 @@ function activeRemote(state) {
   return active && active.kind !== "local" ? active : null;
 }
 
+function devLocalOnly(state) {
+  return activeRemote(state) ? { ...state, activeId: LOCAL_ID } : state;
+}
+
 function allowedOrigins(state, localOrigin) {
   return new Set([localOrigin, ...state.environments.map((e) => e.origin).filter(Boolean)]);
 }
@@ -287,6 +291,7 @@ module.exports = {
   activeEnvironment,
   activeLocalDataDir,
   activeRemote,
+  devLocalOnly,
   allowedOrigins,
   bootEnvironmentDir,
   normalizeOrigin,

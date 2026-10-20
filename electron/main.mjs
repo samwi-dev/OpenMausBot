@@ -1516,9 +1516,11 @@ ipcMain.on("desktop:unread-count", (event, value) => {
   applyUnreadBadge(sender);
 });
 
-const { LOCAL_ID, activeEnvironment, activeRemote, allowedOrigins, bootEnvironmentDir, parseEnvironments, parseHostedWorkspaceLink, serializeEnvironments, startupEnvironmentDir, withActive, withEnvironment, withEnvironmentLook, withLocalEnvironment, withMicrophone, withoutEnvironment, workspaceMenuTemplate, workspaceNavigationAllowed, workspaceSenderAllowed, workspaceSummary, workspaceWindowTitle: baseWorkspaceWindowTitle } = environmentsModule;
+const { LOCAL_ID, activeEnvironment, activeRemote, allowedOrigins, devLocalOnly, bootEnvironmentDir, parseEnvironments, parseHostedWorkspaceLink, serializeEnvironments, startupEnvironmentDir, withActive, withEnvironment, withEnvironmentLook, withLocalEnvironment, withMicrophone, withoutEnvironment, workspaceMenuTemplate, workspaceNavigationAllowed, workspaceSenderAllowed, workspaceSummary, workspaceWindowTitle: baseWorkspaceWindowTitle } = environmentsModule;
 const workspaceWindowTitle = (...args) => app.isPackaged ? baseWorkspaceWindowTitle(...args) : baseWorkspaceWindowTitle(...args).replace(/^OpenMausBot/, "OpenMausBot Dev");
 let environmentsState = { environments: [], activeId: LOCAL_ID };
+// OMB_DEV_REMOTE=1 lets a dev run follow the saved remote choice.
+const keepDevLocal = (state) => (app.isPackaged || process.env.OMB_DEV_REMOTE === "1" ? state : devLocalOnly(state));
 let computerSharing;
 const sharingPrompts = new Set();
 
@@ -1683,7 +1685,7 @@ function refreshApplicationMenu() {
 
 function persistEnvironments(next) {
   writeEnvironments(next);
-  environmentsState = next;
+  environmentsState = keepDevLocal(next);
   refreshApplicationMenu();
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setTitle(workspaceWindowTitle(environmentsState, desktopRemoteAccess));
 }
@@ -3154,7 +3156,7 @@ app.whenReady().then(async () => {
     revealDownloadWhenDone(item, (filePath) => shell.showItemInFolder(filePath));
   });
   // Registry before lease: the lease and the child's OMB_DATA_DIR both follow a named environment.
-  environmentsState = readEnvironments();
+  environmentsState = keepDevLocal(readEnvironments());
   let bootDataDir = desktopDataDir();
   if (app.isPackaged) {
     const boot = bootEnvironmentDir(environmentsState, desktopDataDir());
